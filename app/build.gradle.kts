@@ -85,6 +85,7 @@ dependencies {
   implementation(libs.play.services.auth)
   implementation(libs.guava)
   implementation(libs.mlkit.barcode.scanning)
+  implementation("com.google.mlkit:face-detection:16.1.6")
   implementation(libs.kotlinx.serialization.json)
 
   // Tooling

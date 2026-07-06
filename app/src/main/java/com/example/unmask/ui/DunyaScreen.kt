@@ -16,6 +16,23 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.*
 import androidx.camera.view.PreviewView
+import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.CameraEffect
+import androidx.camera.effects.OverlayEffect
+import androidx.camera.effects.Frame
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PorterDuff
+import android.graphics.RectF
+import android.os.Handler
+import android.os.Looper
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.face.FaceDetection
+import com.google.mlkit.vision.face.FaceDetectorOptions
+import androidx.camera.core.ExperimentalGetImage
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -671,6 +688,16 @@ fun GameSelectionView(
     }
 }
 
+data class FaceData(
+    val centerX: Float,
+    val centerY: Float,
+    val width: Float,
+    val height: Float,
+    val rotation: Int,
+    val imageWidth: Int,
+    val imageHeight: Int
+)
+
 @Composable
 fun OnlineGameplayView(
     session: OnlineSession,
@@ -701,6 +728,8 @@ fun OnlineGameplayView(
     val videoCaptureState = remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
     var recordingTimeRemaining by remember { mutableStateOf(30) }
     var recordingJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    val latestFaceData = remember { mutableStateOf<FaceData?>(null) }
+    var activeFilter by remember { mutableStateOf("none") } // "none", "gozluk", "biyik", "tac", "sakal", "kulak"
 
     LaunchedEffect(showCamera) {
         if (!showCamera) {
@@ -831,17 +860,304 @@ fun OnlineGameplayView(
                                         val videoCapture = VideoCapture.withOutput(recorder)
                                         videoCaptureState.value = videoCapture
 
-                                        try {
-                                            cameraProvider.unbindAll()
-                                            cameraProvider.bindToLifecycle(
-                                                lifecycleOwner,
-                                                CameraSelector.DEFAULT_FRONT_CAMERA,
-                                                preview,
-                                                videoCapture
-                                            )
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                        }
+                                         try {
+                                             cameraProvider.unbindAll()
+
+                                             val imageAnalysis = ImageAnalysis.Builder()
+                                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
+                                                 .build()
+
+                                             val faceDetector = FaceDetection.getClient(
+                                                 FaceDetectorOptions.Builder()
+                                                     .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                                                     .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                                                     .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_NONE)
+                                                     .build()
+                                             )
+
+                                             imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
+                                                 @OptIn(ExperimentalGetImage::class)
+                                                 val mediaImage = imageProxy.image
+                                                 if (mediaImage != null) {
+                                                     val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                                                     faceDetector.process(image)
+                                                         .addOnSuccessListener { faces ->
+                                                             val face = faces.firstOrNull()
+                                                             if (face != null) {
+                                                                 val rect = face.boundingBox
+                                                                 latestFaceData.value = FaceData(
+                                                                     centerX = rect.centerX().toFloat(),
+                                                                     centerY = rect.centerY().toFloat(),
+                                                                     width = rect.width().toFloat(),
+                                                                     height = rect.height().toFloat(),
+                                                                     rotation = imageProxy.imageInfo.rotationDegrees,
+                                                                     imageWidth = imageProxy.width,
+                                                                     imageHeight = imageProxy.height
+                                                                 )
+                                                             } else {
+                                                                 latestFaceData.value = null
+                                                             }
+                                                         }
+                                                         .addOnFailureListener {
+                                                             latestFaceData.value = null
+                                                         }
+                                                         .addOnCompleteListener {
+                                                             imageProxy.close()
+                                                         }
+                                                 } else {
+                                                     imageProxy.close()
+                                                 }
+                                             }
+
+                                             val mainHandler = Handler(Looper.getMainLooper())
+                                             val errorConsumer = androidx.core.util.Consumer<Throwable> { error ->
+                                                 error.printStackTrace()
+                                             }
+                                             val overlayEffect = OverlayEffect(
+                                                 CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE,
+                                                 0,
+                                                 mainHandler,
+                                                 errorConsumer
+                                             )
+
+                                             overlayEffect.setOnDrawListener { frame: Frame ->
+                                                 val canvas = frame.overlayCanvas
+                                                 canvas.drawColor(android.graphics.Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+                                                 
+                                                 val filter = activeFilter
+                                                 val face = latestFaceData.value
+                                                 
+                                                 if (face != null && filter != "none") {
+                                                     val normCenterX = face.centerX / face.imageWidth
+                                                     val normCenterY = face.centerY / face.imageHeight
+                                                     val normWidth = face.width / face.imageWidth
+                                                     val normHeight = face.height / face.imageHeight
+                                                     
+                                                     val viewW = previewView.width.toFloat()
+                                                     val viewH = previewView.height.toFloat()
+                                                     
+                                                     var cx = 0f
+                                                     var cy = 0f
+                                                     var faceW = 0f
+                                                     var faceH = 0f
+                                                     
+                                                     if (face.rotation == 270) {
+                                                         cx = (1f - normCenterY) * viewW
+                                                         cy = normCenterX * viewH
+                                                         faceW = normHeight * viewW
+                                                         faceH = normWidth * viewH
+                                                     } else if (face.rotation == 90) {
+                                                         cx = (1f - normCenterY) * viewW
+                                                         cy = normCenterX * viewH
+                                                         faceW = normHeight * viewW
+                                                         faceH = normWidth * viewH
+                                                     } else {
+                                                         cx = normCenterX * viewW
+                                                         cy = normCenterY * viewH
+                                                         faceW = normWidth * viewW
+                                                         faceH = normHeight * viewH
+                                                     }
+                                                     
+                                                     val sensorToUi = previewView.sensorToViewTransform
+                                                     if (sensorToUi != null) {
+                                                         val uiToSensor = Matrix()
+                                                         sensorToUi.invert(uiToSensor)
+                                                         uiToSensor.postConcat(frame.sensorToBufferTransform)
+                                                         canvas.setMatrix(uiToSensor)
+                                                         
+                                                         val values = FloatArray(9)
+                                                         uiToSensor.getValues(values)
+                                                         val mScaleX = values[Matrix.MSCALE_X]
+                                                         val mSkewX = values[Matrix.MSKEW_X]
+                                                         val mScaleY = values[Matrix.MSCALE_Y]
+                                                         val mSkewY = values[Matrix.MSKEW_Y]
+                                                         val determinant = mScaleX * mScaleY - mSkewX * mSkewY
+                                                         
+                                                         if (determinant < 0f) {
+                                                             canvas.scale(-1f, 1f, cx, cy)
+                                                         }
+                                                     }
+                                                     
+                                                     when (filter) {
+                                                         "gozluk" -> {
+                                                             val glassPaint = Paint().apply {
+                                                                 color = android.graphics.Color.argb(220, 20, 20, 20)
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             val highlightPaint = Paint().apply {
+                                                                 color = android.graphics.Color.argb(128, 255, 255, 255)
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             val bridgePaint = Paint().apply {
+                                                                 color = android.graphics.Color.BLACK
+                                                                 style = Paint.Style.STROKE
+                                                                 strokeWidth = faceW * 0.04f
+                                                                 isAntiAlias = true
+                                                             }
+                                                             
+                                                             val lensW = faceW * 0.32f
+                                                             val lensH = faceH * 0.22f
+                                                             val spacing = faceW * 0.08f
+                                                             
+                                                             canvas.drawRoundRect(cx - spacing/2 - lensW, cy - lensH/2, cx - spacing/2, cy + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+                                                             canvas.drawCircle(cx - spacing/2 - lensW*0.7f, cy - lensH*0.2f, lensW*0.08f, highlightPaint)
+                                                             canvas.drawRoundRect(cx + spacing/2, cy - lensH/2, cx + spacing/2 + lensW, cy + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+                                                             canvas.drawCircle(cx + spacing/2 + lensW*0.3f, cy - lensH*0.2f, lensW*0.08f, highlightPaint)
+                                                             canvas.drawLine(cx - spacing/2, cy, cx + spacing/2, cy, bridgePaint)
+                                                         }
+                                                         "biyik" -> {
+                                                             val mustachePaint = Paint().apply {
+                                                                 color = android.graphics.Color.BLACK
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             val mustachePath = Path().apply {
+                                                                 val mx = cx
+                                                                 val my = cy + faceH * 0.15f
+                                                                 val mw = faceW * 0.25f
+                                                                 val mh = faceH * 0.08f
+                                                                 
+                                                                 moveTo(mx, my)
+                                                                 cubicTo(mx - mw * 0.4f, my - mh * 0.2f, mx - mw * 0.8f, my + mh * 0.2f, mx - mw, my + mh * 0.5f)
+                                                                 cubicTo(mx - mw * 0.9f, my + mh * 0.9f, mx - mw * 0.5f, my + mh * 0.7f, mx, my + mh * 0.2f)
+                                                                 cubicTo(mx + mw * 0.5f, my + mh * 0.7f, mx + mw * 0.9f, my + mh * 0.9f, mx + mw, my + mh * 0.5f)
+                                                                 cubicTo(mx + mw * 0.8f, my + mh * 0.2f, mx + mw * 0.4f, my - mh * 0.2f, mx, my)
+                                                                 close()
+                                                             }
+                                                             canvas.drawPath(mustachePath, mustachePaint)
+                                                         }
+                                                         "tac" -> {
+                                                             val crownPaint = Paint().apply {
+                                                                 color = android.graphics.Color.rgb(253, 224, 71)
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             val jewelPaint = Paint().apply {
+                                                                 color = android.graphics.Color.rgb(239, 68, 68)
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             val crownPath = Path().apply {
+                                                                 val rx = cx
+                                                                 val ry = cy - faceH * 0.45f
+                                                                 val rw = faceW * 0.35f
+                                                                 val rh = faceH * 0.25f
+                                                                 
+                                                                 moveTo(rx - rw, ry)
+                                                                 lineTo(rx - rw * 0.8f, ry - rh * 0.6f)
+                                                                 lineTo(rx - rw * 0.4f, ry - rh * 0.3f)
+                                                                 lineTo(rx, ry - rh)
+                                                                 lineTo(rx + rw * 0.4f, ry - rh * 0.3f)
+                                                                 lineTo(rx + rw * 0.8f, ry - rh * 0.6f)
+                                                                 lineTo(rx + rw, ry)
+                                                                 close()
+                                                             }
+                                                             canvas.drawPath(crownPath, crownPaint)
+                                                             
+                                                             val rx = cx
+                                                             val ry = cy - faceH * 0.45f
+                                                             val rw = faceW * 0.35f
+                                                             val rh = faceH * 0.25f
+                                                             val jRadius = faceW * 0.025f
+                                                             
+                                                             canvas.drawCircle(rx - rw * 0.8f, ry - rh * 0.6f, jRadius, jewelPaint)
+                                                             canvas.drawCircle(rx, ry - rh, jRadius, jewelPaint)
+                                                             canvas.drawCircle(rx + rw * 0.8f, ry - rh * 0.6f, jRadius, jewelPaint)
+                                                         }
+                                                         "sakal" -> {
+                                                             val beardPaint = Paint().apply {
+                                                                 color = android.graphics.Color.rgb(40, 30, 20)
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             val beardPath = Path().apply {
+                                                                 val bx = cx
+                                                                 val by = cy + faceH * 0.1f
+                                                                 val bw = faceW * 0.42f
+                                                                 val bh = faceH * 0.45f
+                                                                 
+                                                                 moveTo(bx - bw, by)
+                                                                 cubicTo(bx - bw, by + bh * 0.5f, bx - bw * 0.6f, by + bh, bx, by + bh)
+                                                                 cubicTo(bx + bw * 0.6f, by + bh, bx + bw, by + bh * 0.5f, bx + bw, by)
+                                                                 lineTo(bx + bw * 0.6f, by)
+                                                                 cubicTo(bx + bw * 0.4f, by + bh * 0.2f, bx + bw * 0.2f, by + bh * 0.3f, bx, by + bh * 0.3f)
+                                                                 cubicTo(bx - bw * 0.2f, by + bh * 0.3f, bx - bw * 0.4f, by + bh * 0.2f, bx - bw * 0.6f, by)
+                                                                 close()
+                                                             }
+                                                             canvas.drawPath(beardPath, beardPaint)
+                                                         }
+                                                         "kulak" -> {
+                                                             val earOuterPaint = Paint().apply {
+                                                                 color = android.graphics.Color.rgb(244, 63, 94)
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             val earInnerPaint = Paint().apply {
+                                                                 color = android.graphics.Color.rgb(254, 205, 211)
+                                                                 style = Paint.Style.FILL
+                                                                 isAntiAlias = true
+                                                             }
+                                                             
+                                                             val earW = faceW * 0.2f
+                                                             val earH = faceH * 0.2f
+                                                             val earSpacing = faceW * 0.25f
+                                                             val earY = cy - faceH * 0.52f
+                                                             
+                                                             val leftEarPath = Path().apply {
+                                                                 moveTo(cx - earSpacing - earW/2, earY)
+                                                                 lineTo(cx - earSpacing, earY - earH)
+                                                                 lineTo(cx - earSpacing + earW/2, earY)
+                                                                 close()
+                                                             }
+                                                             canvas.drawPath(leftEarPath, earOuterPaint)
+                                                             
+                                                             val leftEarInnerPath = Path().apply {
+                                                                 moveTo(cx - earSpacing - earW*0.3f, earY)
+                                                                 lineTo(cx - earSpacing, earY - earH*0.7f)
+                                                                 lineTo(cx - earSpacing + earW*0.3f, earY)
+                                                                 close()
+                                                             }
+                                                             canvas.drawPath(leftEarInnerPath, earInnerPaint)
+                                                             
+                                                             val rightEarPath = Path().apply {
+                                                                 moveTo(cx + earSpacing - earW/2, earY)
+                                                                 lineTo(cx + earSpacing, earY - earH)
+                                                                 lineTo(cx + earSpacing + earW/2, earY)
+                                                                 close()
+                                                             }
+                                                             canvas.drawPath(rightEarPath, earOuterPaint)
+                                                             
+                                                             val rightEarInnerPath = Path().apply {
+                                                                 moveTo(cx + earSpacing - earW*0.3f, earY)
+                                                                 lineTo(cx + earSpacing, earY - earH*0.7f)
+                                                                 lineTo(cx + earSpacing + earW*0.3f, earY)
+                                                                 close()
+                                                             }
+                                                             canvas.drawPath(rightEarInnerPath, earInnerPaint)
+                                                         }
+                                                     }
+                                                 }
+                                                 true
+                                             }
+
+                                             val useCaseGroup = UseCaseGroup.Builder()
+                                                 .addUseCase(preview)
+                                                 .addUseCase(videoCapture)
+                                                 .addUseCase(imageAnalysis)
+                                                 .addEffect(overlayEffect)
+                                                 .build()
+
+                                             cameraProvider.bindToLifecycle(
+                                                 lifecycleOwner,
+                                                 CameraSelector.DEFAULT_FRONT_CAMERA,
+                                                 useCaseGroup
+                                             )
+                                         } catch (e: Exception) {
+                                             e.printStackTrace()
+                                         }
                                     }, ContextCompat.getMainExecutor(ctx))
                                     previewView
                                 },
@@ -932,6 +1248,40 @@ fun OnlineGameplayView(
                                         }
                                     }
                                 }
+
+                                 // Filter Selection Bar
+                                 LazyRow(
+                                     modifier = Modifier.fillMaxWidth(),
+                                     horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                     contentPadding = PaddingValues(horizontal = 4.dp)
+                                 ) {
+                                     val filters = listOf(
+                                         "none" to "❌ Filtresiz",
+                                         "gozluk" to "🕶️ Gözlük",
+                                         "biyik" to "👨 Bıyık",
+                                         "tac" to "👑 Taç",
+                                         "sakal" to "🧔 Sakal",
+                                         "kulak" to "🐱 Kulak"
+                                     )
+                                     items(filters) { (id, label) ->
+                                         val isSelected = activeFilter == id
+                                         Box(
+                                             modifier = Modifier
+                                                 .clip(RoundedCornerShape(20.dp))
+                                                 .background(if (isSelected) Color(0xFF8B5CF6) else Color.Black.copy(alpha = 0.5f))
+                                                 .border(1.dp, if (isSelected) Color.White else Color.White.copy(alpha = 0.2f), RoundedCornerShape(20.dp))
+                                                 .clickable { activeFilter = id }
+                                                 .padding(horizontal = 16.dp, vertical = 8.dp)
+                                         ) {
+                                             Text(
+                                                 text = label,
+                                                 color = Color.White,
+                                                 fontSize = 13.sp,
+                                                 fontWeight = FontWeight.Bold
+                                             )
+                                         }
+                                     }
+                                 }
 
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
