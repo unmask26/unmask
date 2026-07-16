@@ -74,6 +74,17 @@ fun CameraTaskScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
 
+    val cameraProviderState = remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    DisposableEffect(context) {
+        onDispose {
+            try {
+                cameraProviderState.value?.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     val customGames = repository.customGames.collectAsState(initial = emptyList()).value
     val customTasks = repository.customTasks.collectAsState(initial = emptyList()).value
 
@@ -447,6 +458,7 @@ fun CameraTaskScreen(
                                 .build()
 
                             try {
+                                cameraProviderState.value = cameraProvider
                                 cameraProvider.unbindAll()
                                 cameraProvider.bindToLifecycle(
                                     lifecycleOwner,

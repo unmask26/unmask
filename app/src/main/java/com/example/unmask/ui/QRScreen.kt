@@ -52,6 +52,17 @@ fun QRScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val cameraProviderState = remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    DisposableEffect(context) {
+        onDispose {
+            try {
+                cameraProviderState.value?.unbindAll()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     var manualCode by remember { mutableStateOf("") }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
 
@@ -180,6 +191,7 @@ fun QRScreen(
 
                         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
                         try {
+                            cameraProviderState.value = cameraProvider
                             cameraProvider.unbindAll()
                             cameraProvider.bindToLifecycle(
                                 lifecycleOwner,

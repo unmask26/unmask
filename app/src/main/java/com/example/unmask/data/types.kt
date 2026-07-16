@@ -32,7 +32,10 @@ data class UserProfile(
     val birthDate: String = "",
     val isAdult: Boolean = false,
     val adultPassword: String? = "",
-    val banUntil: Long? = 0L
+    val banUntil: Long? = 0L,
+    val score: Int = 100,
+    val ratingCount: Int = 0,
+    val totalRating: Int = 0
 )
 
 @Serializable
@@ -67,7 +70,9 @@ data class OnlineUserPresence(
     val userName: String = "",
     val status: String = "idle", // "idle", "playing", "offline"
     val lastActive: Long = 0,
-    val banUntil: Long = 0
+    val banUntil: Long = 0,
+    val score: Int = 100,
+    val gender: String = "Erkek"
 )
 
 @Serializable
@@ -77,7 +82,9 @@ data class OnlineSession(
     val user1Name: String = "",
     val user2Id: String = "",
     val user2Name: String = "",
-    val status: String = "category_selection", // "category_selection", "game_selection", "playing", "finished"
+    val user1Gender: String = "Erkek",
+    val user2Gender: String = "Erkek",
+    val status: String = "category_selection", // "category_selection", "game_selection", "playing", "rating", "finished"
     val user1Categories: List<String> = emptyList(),
     val user2Categories: List<String> = emptyList(),
     val commonCategory: String = "",
@@ -85,8 +92,38 @@ data class OnlineSession(
     val currentTurn: String = "", // userId
     val activeCardCode: String = "",
     val activeTaskId: String = "",
+    val activeTaskText: String = "",
     val videoUrl: String = "",
     val videoSenderId: String = "",
     val downloadRequestStatus: String = "none", // "none", "requested", "approved", "rejected"
-    val lastHeartbeat: Long = 0
+    val lastHeartbeat: Long = 0,
+    val user1TaskCount: Int = 0,
+    val user2TaskCount: Int = 0,
+    val user1Rating: Int = 0,
+    val user2Rating: Int = 0
+)
+
+@Serializable
+data class Comment(
+    val id: String = "",
+    val userId: String = "",
+    val userName: String = "",
+    val text: String = "",
+    val createdAt: Long = 0L
+)
+
+@Serializable
+data class PublicVideo(
+    val id: String = "",
+    val userId: String = "",
+    val userName: String = "",
+    val videoUrl: String = "",
+    val gameName: String = "",
+    val taskText: String = "",
+    val filterName: String = "",
+    val createdAt: Long = 0L,
+    val expiresAt: Long = 0L,
+    val likesCount: Int = 0,
+    val likedBy: List<String> = emptyList(),
+    val comments: List<Comment> = emptyList()
 )

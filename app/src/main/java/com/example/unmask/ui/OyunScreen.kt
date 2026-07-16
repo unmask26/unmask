@@ -1,7 +1,7 @@
 package com.example.unmask.ui
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Lock
@@ -35,11 +37,24 @@ fun OyunScreen(
     user: UserProfile?,
     activeGame: Game?,
     customGames: List<Game> = emptyList(),
+    repository: com.example.unmask.data.DataRepository,
     onStartSession: (Game) -> Unit,
     onEndSession: () -> Unit,
     onNavigateToQR: (String?) -> Unit,
     onMenuClick: () -> Unit
 ) {
+    var showOnlineSection by remember { mutableStateOf(false) }
+    
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val dotAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "alpha"
+    )
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
     var showPurchaseModal by remember { mutableStateOf<Game?>(null) }
@@ -48,13 +63,19 @@ fun OyunScreen(
     var inputPassword by remember { mutableStateOf("") }
     var passwordError by remember { mutableStateOf(false) }
 
+    val outerPadding = if (showOnlineSection) 0.dp else 16.dp
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF9F9F9))
-            .padding(16.dp)
+            .padding(outerPadding)
     ) {
-        if (selectedCategory != null) {
+        if (showOnlineSection) {
+            DunyaScreen(
+                repository = repository,
+                onBack = { showOnlineSection = false }
+            )
+        } else if (selectedCategory != null) {
             // Games list inside selected Category
             val categoryName = selectedCategory!!
             val allGames = Constants.GAMES + customGames
@@ -173,6 +194,35 @@ fun OyunScreen(
                             fontWeight = FontWeight.Black,
                             color = Color.Black
                         )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Button(
+                            onClick = { showOnlineSection = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black.copy(alpha = 0.05f),
+                                contentColor = Color.Black
+                            ),
+                            shape = RoundedCornerShape(50),
+                            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.1f)),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color(0xFF10B981).copy(alpha = dotAlpha), CircleShape)
+                                )
+                                Text(
+                                    text = "ONLINE",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
                     }
 
                     if (activeGame != null) {

@@ -61,10 +61,10 @@ interface DataRepository {
     suspend fun saveCustomGame(game: Game, tasks: List<Task>)
     
     fun getOnlineUsers(currentUserId: String): Flow<List<OnlineUserPresence>>
-    suspend fun updatePresence(userId: String, userName: String, status: String, banUntil: Long = 0)
+    suspend fun updatePresence(userId: String, userName: String, status: String, banUntil: Long = 0, gender: String = "Erkek")
     suspend fun removePresence(userId: String)
     fun observeActiveSession(userId: String): Flow<OnlineSession?>
-    suspend fun createSession(user1Id: String, user1Name: String, user2Id: String, user2Name: String): String
+    suspend fun createSession(user1Id: String, user1Name: String, user1Gender: String = "Erkek", user2Id: String, user2Name: String, user2Gender: String = "Erkek", category: String = ""): String
     suspend fun updateSession(session: OnlineSession)
     suspend fun updateSessionHeartbeat(sessionId: String)
     suspend fun deleteSession(sessionId: String)
@@ -72,6 +72,12 @@ interface DataRepository {
     suspend fun uploadOnlineVideo(sessionId: String, videoUri: Uri): String
     suspend fun deleteOnlineVideo(videoUrl: String)
     suspend fun banUser(userId: String, durationMs: Long)
+    suspend fun rateUser(targetUserId: String, ratingStars: Int)
+    suspend fun publishPublicVideo(gameName: String, taskText: String, filterName: String, videoUri: Uri): String
+    fun getPublicVideos(): Flow<List<PublicVideo>>
+    suspend fun cleanExpiredPublicVideos()
+    suspend fun toggleLikePublicVideo(videoId: String): Boolean
+    suspend fun addCommentToPublicVideo(videoId: String, commentText: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -611,7 +617,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         doc.toObject(OnlineUserPresence::class.java)
                     }?.filter { 
                         it.userId != currentUserId && 
-                        it.status == "idle" && 
+                        (it.status == "idle" || it.status.startsWith("searching:")) && 
                         Math.abs(System.currentTimeMillis() - it.lastActive) < 12_000 
                     } ?: emptyList()
                     trySend(users)
@@ -620,7 +626,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         }
     }
 
-    override suspend fun updatePresence(userId: String, userName: String, status: String, banUntil: Long) {
+    override suspend fun updatePresence(userId: String, userName: String, status: String, banUntil: Long, gender: String) {
         if (userId == "offline_demo_user") return
         try {
             val presence = OnlineUserPresence(
@@ -628,7 +634,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 userName = userName,
                 status = status,
                 lastActive = System.currentTimeMillis(),
-                banUntil = banUntil
+                banUntil = banUntil,
+                score = _currentUser.value?.score ?: 100,
+                gender = gender
             )
             firestore.collection("online_users").document(userId).set(presence).await()
         } catch (e: Exception) {
@@ -669,15 +677,27 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         }
     }
 
-    override suspend fun createSession(user1Id: String, user1Name: String, user2Id: String, user2Name: String): String {
+    override suspend fun createSession(
+        user1Id: String,
+        user1Name: String,
+        user1Gender: String,
+        user2Id: String,
+        user2Name: String,
+        user2Gender: String,
+        category: String
+    ): String {
         val sessionId = "session-" + UUID.randomUUID().toString()
         val session = OnlineSession(
             id = sessionId,
             user1Id = user1Id,
             user1Name = user1Name,
+            user1Gender = user1Gender,
             user2Id = user2Id,
             user2Name = user2Name,
-            status = "category_selection",
+            user2Gender = user2Gender,
+            status = "playing",
+            commonCategory = category,
+            selectedGameId = "online-matchmaking-game",
             currentTurn = user2Id, // Selected user gets first turn
             lastHeartbeat = System.currentTimeMillis()
         )
@@ -690,8 +710,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 delay(1500)
                 val current = _simulatedSession.value
                 if (current != null && current.user1Categories.isNotEmpty() && current.user2Categories.isEmpty()) {
-                    val botCats = listOf("SPOR", "EĞLENCE", "BİLGİ", "GEZİ", "ADULT").shuffled()
-                    var bestCat = "EĞLENCE"
+                    val botCats = listOf("iliskiler", "adrenalin", "bilgi", "aktuel", "hatiralar", "fanteziler", "adult", "softhub").shuffled()
+                    var bestCat = "iliskiler"
                     var minRankSum = 999
                     for (cat in botCats) {
                         val r1 = current.user1Categories.indexOf(cat)
@@ -715,7 +735,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         } else {
             try {
                 firestore.collection("online_sessions").document(sessionId).set(session).await()
-                updatePresence(user1Id, user1Name, "playing")
+                updatePresence(user1Id, user1Name, "playing", gender = user1Gender)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -733,8 +753,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     delay(2000)
                     val current = _simulatedSession.value
                     if (current != null) {
-                        val botCats = listOf("SPOR", "EĞLENCE", "BİLGİ", "GEZİ", "ADULT").shuffled()
-                        var bestCat = "EĞLENCE"
+                        val botCats = listOf("iliskiler", "adrenalin", "bilgi", "aktuel", "hatiralar", "fanteziler", "adult", "softhub").shuffled()
+                        var bestCat = "iliskiler"
                         var minRankSum = 999
                         for (cat in botCats) {
                             val r1 = current.user1Categories.indexOf(cat)
@@ -1015,10 +1035,159 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         if (userId != "offline_demo_user") {
             try {
                 firestore.collection("users").document(userId).update("banUntil", banTime).await()
-                updatePresence(userId, current.displayName, "offline", banTime)
+                updatePresence(userId, current.displayName, "offline", banTime, gender = current.gender)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+    }
+
+    override suspend fun rateUser(targetUserId: String, ratingStars: Int) {
+        if (targetUserId == "offline_demo_user" || targetUserId.startsWith("bot_")) return
+        try {
+            val userRef = firestore.collection("users").document(targetUserId)
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(userRef)
+                val currentRatingCount = snapshot.getLong("ratingCount") ?: 0L
+                val currentTotalRating = snapshot.getLong("totalRating") ?: 0L
+                
+                val newCount = currentRatingCount + 1
+                val newTotal = currentTotalRating + ratingStars
+                val newScore = ((newTotal * 20) / newCount).toInt().coerceAtMost(100)
+                
+                transaction.update(userRef, mapOf(
+                    "ratingCount" to newCount,
+                    "totalRating" to newTotal,
+                    "score" to newScore
+                ))
+                null
+            }.await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun publishPublicVideo(gameName: String, taskText: String, filterName: String, videoUri: Uri): String {
+        val user = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
+        val videoUrl = uploadOnlineVideo("public_feed", videoUri)
+        val docId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        val expires = now + 60 * 60 * 1000 // 1 hour expiration
+        
+        val publicVideo = PublicVideo(
+            id = docId,
+            userId = user.uid,
+            userName = user.displayName,
+            videoUrl = videoUrl,
+            gameName = gameName,
+            taskText = taskText,
+            filterName = filterName,
+            createdAt = now,
+            expiresAt = expires
+        )
+        
+        firestore.collection("public_videos").document(docId).set(publicVideo).await()
+        return docId
+    }
+
+    override fun getPublicVideos(): Flow<List<PublicVideo>> = kotlinx.coroutines.flow.callbackFlow {
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                cleanExpiredPublicVideos()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        val listener = firestore.collection("public_videos")
+            .whereGreaterThan("expiresAt", System.currentTimeMillis())
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(PublicVideo::class.java)
+                } ?: emptyList()
+                trySend(list.sortedByDescending { it.createdAt })
+            }
+        
+        awaitClose {
+            listener.remove()
+        }
+    }
+
+    override suspend fun cleanExpiredPublicVideos() {
+        val now = System.currentTimeMillis()
+        try {
+            val expiredDocs = firestore.collection("public_videos")
+                .whereLessThanOrEqualTo("expiresAt", now)
+                .get()
+                .await()
+                
+            for (doc in expiredDocs.documents) {
+                val videoUrl = doc.getString("videoUrl") ?: ""
+                if (videoUrl.isNotEmpty()) {
+                    deleteOnlineVideo(videoUrl)
+                }
+                firestore.collection("public_videos").document(doc.id).delete().await()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun toggleLikePublicVideo(videoId: String): Boolean {
+        val user = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
+        val docRef = firestore.collection("public_videos").document(videoId)
+        var isLiked = false
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(docRef)
+            val likedBy = snapshot.get("likedBy") as? List<String> ?: emptyList()
+            val mutableLikedBy = likedBy.toMutableList()
+            
+            if (mutableLikedBy.contains(user.uid)) {
+                mutableLikedBy.remove(user.uid)
+                isLiked = false
+            } else {
+                mutableLikedBy.add(user.uid)
+                isLiked = true
+            }
+            val newLikesCount = mutableLikedBy.size
+            transaction.update(docRef, mapOf(
+                "likedBy" to mutableLikedBy,
+                "likesCount" to newLikesCount
+            ))
+            null
+        }.await()
+        return isLiked
+    }
+
+    override suspend fun addCommentToPublicVideo(videoId: String, commentText: String) {
+        val user = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
+        val docRef = firestore.collection("public_videos").document(videoId)
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(docRef)
+            val commentsList = (snapshot.get("comments") as? List<Map<String, Any>> ?: emptyList()).map { map ->
+                Comment(
+                    id = map["id"] as? String ?: "",
+                    userId = map["userId"] as? String ?: "",
+                    userName = map["userName"] as? String ?: "",
+                    text = map["text"] as? String ?: "",
+                    createdAt = map["createdAt"] as? Long ?: 0L
+                )
+            }
+            val mutableComments = commentsList.toMutableList()
+            val newComment = Comment(
+                id = UUID.randomUUID().toString(),
+                userId = user.uid,
+                userName = user.displayName,
+                text = commentText,
+                createdAt = System.currentTimeMillis()
+            )
+            mutableComments.add(newComment)
+            transaction.update(docRef, "comments", mutableComments)
+            null
+        }.await()
     }
 }

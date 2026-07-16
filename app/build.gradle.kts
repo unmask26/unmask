@@ -7,11 +7,11 @@ plugins {
 
 android {
     namespace = "com.example.unmask"
-    compileSdk = 36
+    compileSdk = 35
     defaultConfig {
         applicationId = "com.socialalarm"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
     }
@@ -86,6 +86,7 @@ dependencies {
   implementation(libs.guava)
   implementation(libs.mlkit.barcode.scanning)
   implementation("com.google.mlkit:face-detection:16.1.6")
+  implementation("com.google.mediapipe:tasks-vision:0.10.14")
   implementation(libs.kotlinx.serialization.json)
 
   // Tooling
