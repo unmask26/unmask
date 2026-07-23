@@ -55,6 +55,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -957,6 +959,12 @@ fun OnlineGameplayView(
     val lastFrameTimeNs      = remember { java.util.concurrent.atomic.AtomicLong(0L) }
     var activeFilter           by remember { mutableStateOf("none") }
     var selectedCategoryFilter by remember { mutableStateOf<com.example.unmask.features.ar.MaskCategory?>(null) }
+    var isFaceDetected         by remember { mutableStateOf(false) }
+
+    val visibleMasks = remember(selectedCategoryFilter) {
+        if (selectedCategoryFilter == null) com.example.unmask.features.ar.PartyMaskEngine.PARTY_MASKS
+        else com.example.unmask.features.ar.PartyMaskEngine.PARTY_MASKS.filter { it.category == selectedCategoryFilter }
+    }
 
     DisposableEffect(context) {
         onDispose {
@@ -1009,9 +1017,11 @@ fun OnlineGameplayView(
                         rotation               = rot,
                         analysisSensorToBuffer = sensorToBuffer
                     ))
+                    isFaceDetected = true
                 } else {
                     if (frameTime - lastDetectedTime.get() > 1000) {
                         latestFaceData.set(null)
+                        isFaceDetected = false
                         smoothedMetrics.reset()
                     }
                 }
@@ -1146,6 +1156,31 @@ fun OnlineGameplayView(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(Color.Black)
+                                .pointerInput(visibleMasks, activeFilter) {
+                                    var totalDrag = 0f
+                                    detectHorizontalDragGestures(
+                                        onDragStart = { totalDrag = 0f },
+                                        onDragEnd = {
+                                            val filterOptions = listOf("none") + visibleMasks.map { it.id }
+                                            val currentIndex = filterOptions.indexOf(activeFilter)
+                                            if (currentIndex != -1 && filterOptions.size > 1) {
+                                                if (totalDrag > 100f) {
+                                                    // Swipe Right (finger moves left-to-right): Next filter
+                                                    val nextIndex = if (currentIndex >= filterOptions.size - 1) 0 else currentIndex + 1
+                                                    activeFilter = filterOptions[nextIndex]
+                                                } else if (totalDrag < -100f) {
+                                                    // Swipe Left (finger moves right-to-left): Previous filter
+                                                    val prevIndex = if (currentIndex <= 0) filterOptions.size - 1 else currentIndex - 1
+                                                    activeFilter = filterOptions[prevIndex]
+                                                }
+                                            }
+                                        },
+                                        onHorizontalDrag = { change, dragAmount ->
+                                            change.consume()
+                                            totalDrag += dragAmount
+                                        }
+                                    )
+                                }
                         ) {
                             val permissionLauncher = rememberLauncherForActivityResult(
                                 contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -1291,25 +1326,47 @@ fun OnlineGameplayView(
                                     Icon(imageVector = Icons.Default.ChevronLeft, contentDescription = "Back", tint = Color.White)
                                 }
 
-                                if (isRecording) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Face detection indicator
+                                    Box(
                                         modifier = Modifier
-                                            .background(Color.Red.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                                            .background(Color.Black.copy(0.65f), RoundedCornerShape(12.dp))
                                             .padding(horizontal = 12.dp, vertical = 6.dp)
                                     ) {
-                                        Box(
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Box(Modifier.size(8.dp).background(
+                                                if (isFaceDetected) Color(0xFF10B981) else Color(0xFFEF4444), CircleShape
+                                            ))
+                                            Text(
+                                                text = if (isFaceDetected) "YÜZ ALGILANDI" else "YÜZ ARANIYOR...",
+                                                color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    if (isRecording) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
                                             modifier = Modifier
-                                                .size(8.dp)
-                                                .background(Color.White, RoundedCornerShape(50))
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "00:${if (recordingTimeRemaining < 10) "0" else ""}$recordingTimeRemaining",
-                                            color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                                .background(Color.Red.copy(alpha = 0.8f), RoundedCornerShape(8.dp))
+                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .background(Color.White, RoundedCornerShape(50))
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "00:${if (recordingTimeRemaining < 10) "0" else ""}$recordingTimeRemaining",
+                                                color = Color.White,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }

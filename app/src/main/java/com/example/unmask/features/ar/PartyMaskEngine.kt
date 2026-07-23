@@ -411,8 +411,8 @@ object PartyMaskEngine {
         try {
             canvas.translate(metrics.eyeMidX, metrics.eyeMidY)
             canvas.rotate(metrics.rollAngle)
-            // scale so that 1 unit == inter-eye distance, shrunk by 30%
-            val scaledDist = metrics.eyeDistance * 0.7f
+            // scale so that 1 unit == inter-eye distance, shrunk by 44% (reduced original 0.7 by 20% to 0.56)
+            val scaledDist = metrics.eyeDistance * 0.56f
             canvas.scale(scaledDist, scaledDist)
 
             canvas.drawPath(spec.basePath, paintFill)
