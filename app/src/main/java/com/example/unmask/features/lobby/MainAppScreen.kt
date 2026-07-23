@@ -50,6 +50,21 @@ fun MainAppScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        repository.getPublicVideos().collect { videos ->
+            videos.forEach { video ->
+                launch(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        com.example.unmask.data.VideoCacheManager.prefetchVideo(context, video.videoUrl)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+    }
+
     // Session states
     val onStartSession: (Game) -> Unit = { game ->
         activeGame = game

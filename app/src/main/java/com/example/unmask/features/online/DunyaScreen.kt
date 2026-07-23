@@ -938,6 +938,14 @@ fun OnlineGameplayView(
 
     var recordedUri by remember { mutableStateOf<Uri?>(null) }
     var isUploading by remember { mutableStateOf(false) }
+    var isPublishedToWorld by remember { mutableStateOf(false) }
+    var isPublishingToWorld by remember { mutableStateOf(false) }
+
+    LaunchedEffect(recordedUri) {
+        if (recordedUri == null) {
+            isPublishedToWorld = false
+        }
+    }
 
     var showCamera by remember { mutableStateOf(false) }
     var isRecording by remember { mutableStateOf(false) }
@@ -1510,6 +1518,57 @@ fun OnlineGameplayView(
 
                                     if (isUploading) {
                                         CircularProgressIndicator(color = Color.White)
+                                    }
+                                }
+
+                                if (recordedUri != null && !isUploading) {
+                                    Button(
+                                        onClick = {
+                                            isPublishingToWorld = true
+                                            coroutineScope.launch {
+                                                try {
+                                                    val filterName = if (activeFilter == "none") "" else {
+                                                        com.example.unmask.features.ar.PartyMaskEngine.PARTY_MASKS.find { it.id == activeFilter }?.name ?: activeFilter
+                                                    }
+                                                    repository.publishPublicVideo(
+                                                        gameName = activeGame.name,
+                                                        taskText = currentTaskText,
+                                                        filterName = filterName,
+                                                        videoUri = recordedUri!!
+                                                    )
+                                                    isPublishedToWorld = true
+                                                    withContext(Dispatchers.Main) {
+                                                        Toast.makeText(context, "Videonuz Dünya sekmesinde paylaşıldı!", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                    withContext(Dispatchers.Main) {
+                                                        Toast.makeText(context, "Paylaşım Hatası: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                                    }
+                                                } finally {
+                                                    isPublishingToWorld = false
+                                                }
+                                            }
+                                        },
+                                        enabled = !isPublishedToWorld && !isPublishingToWorld,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF8B5CF6),
+                                            disabledContainerColor = Color(0xFF8B5CF6).copy(alpha = 0.5f)
+                                        ),
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(56.dp)
+                                    ) {
+                                        if (isPublishingToWorld) {
+                                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                                        } else {
+                                            Text(
+                                                text = if (isPublishedToWorld) "DÜNYAYA SUNULDU! 🌍" else "DÜNYAYA SUN 🌍",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Black
+                                            )
+                                        }
                                     }
                                 }
                                 
