@@ -115,13 +115,14 @@ fun GecmisScreen(
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (isOnline) {
+                    if (isOnline && opponentPresence != null) {
+                        val status = opponentPresence.status
                         val lobbyText = when {
-                            opponentPresence!!.status.startsWith("searching:") -> {
-                                val cat = opponentPresence.status.removePrefix("searching:")
+                            status.startsWith("searching:") -> {
+                                val cat = status.removePrefix("searching:")
                                 "$cat lobisinde aranıyor"
                             }
-                            opponentPresence.status == "playing" -> "Oyun oynuyor"
+                            status == "playing" -> "Oyun oynuyor"
                             else -> "Çevrimiçi"
                         }
                         Text(
@@ -409,13 +410,14 @@ fun GecmisScreen(
                                             color = Color.Black
                                         )
 
-                                        if (isOnline) {
+                                        if (isOnline && opponentPresence != null) {
+                                            val status = opponentPresence.status
                                             val lobbyText = when {
-                                                opponentPresence!!.status.startsWith("searching:") -> {
-                                                    val cat = opponentPresence.status.removePrefix("searching:")
+                                                status.startsWith("searching:") -> {
+                                                    val cat = status.removePrefix("searching:")
                                                     cat.uppercase() + " lobisinde"
                                                 }
-                                                opponentPresence.status == "playing" -> "Oyun oynuyor"
+                                                status == "playing" -> "Oyun oynuyor"
                                                 else -> "Çevrimiçi"
                                             }
                                             Text(

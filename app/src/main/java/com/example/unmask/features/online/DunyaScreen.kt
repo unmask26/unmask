@@ -525,7 +525,7 @@ fun DunyaScreen(
             }
         } else {
             // Real-Time Active Session View
-            val session = activeSession!!
+            val session = activeSession ?: return
             val isUser1 = session.user1Id == user.uid
             
             // Check for opponent disconnect/stale heartbeats
