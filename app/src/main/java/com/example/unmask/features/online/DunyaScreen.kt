@@ -1637,18 +1637,21 @@ fun OnlineGameplayView(
                                                     try {
                                                         val uriSnapshot = recordedUri ?: return@launch
                                                         
-                                                        // 🛡️ Cihaz içi NSFW (Müstehcen İçerik) Taraması
-                                                        val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, uriSnapshot)
-                                                        if (nsfwResult.isNSFW) {
-                                                            withContext(Dispatchers.Main) {
-                                                                Toast.makeText(
-                                                                    context,
-                                                                    "⚠️ UYARI: Videonuz topluluk kurallarına aykırı (NSFW) içerik barındırdığı için engellendi!",
-                                                                    Toast.LENGTH_LONG
-                                                                ).show()
+                                                        // 🛡️ Cihaz içi NSFW (Müstehcen İçerik) Taraması (Adult lobisinde pasif)
+                                                        val isAdultCategory = session.commonCategory.lowercase() == "adult"
+                                                        if (!isAdultCategory) {
+                                                            val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, uriSnapshot)
+                                                            if (nsfwResult.isNSFW) {
+                                                                withContext(Dispatchers.Main) {
+                                                                    Toast.makeText(
+                                                                        context,
+                                                                        "⚠️ UYARI: Videonuz topluluk kurallarına aykırı (NSFW) içerik barındırdığı için engellendi!",
+                                                                        Toast.LENGTH_LONG
+                                                                    ).show()
+                                                                }
+                                                                isUploading = false
+                                                                return@launch
                                                             }
-                                                            isUploading = false
-                                                            return@launch
                                                         }
 
                                                         val url = repository.uploadOnlineVideo(session.id, uriSnapshot)
