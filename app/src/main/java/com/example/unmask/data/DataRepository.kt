@@ -86,6 +86,13 @@ interface DataRepository {
     suspend fun cleanExpiredPublicVideos()
     suspend fun toggleLikePublicVideo(videoId: String): Boolean
     suspend fun addCommentToPublicVideo(videoId: String, commentText: String)
+
+    fun getOnlineHistory(userId: String): Flow<List<OnlineHistoryItem>>
+    suspend fun recordOnlineHistory(user1Id: String, user1Name: String, user1Gender: String, user2Id: String, user2Name: String, user2Gender: String, category: String)
+    suspend fun sendGameInvite(toUserId: String, toUserName: String): String
+    fun observeIncomingGameInvites(userId: String): Flow<List<GameInvite>>
+    suspend fun acceptGameInvite(inviteId: String, category: String): String
+    suspend fun rejectGameInvite(inviteId: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -744,6 +751,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             try {
                 firestore.collection("online_sessions").document(sessionId).set(session).await()
                 updatePresence(user1Id, user1Name, "playing", gender = user1Gender)
+                recordOnlineHistory(user1Id, user1Name, user1Gender, user2Id, user2Name, user2Gender, category)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -1201,5 +1209,142 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             transaction.update(docRef, "comments", mutableComments)
             null
         }.await()
+    }
+
+    override fun getOnlineHistory(userId: String): Flow<List<OnlineHistoryItem>> = callbackFlow {
+        if (userId == "offline_demo_user") {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        val listener = firestore.collection("online_history")
+            .whereEqualTo("userId", userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val list = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(OnlineHistoryItem::class.java)?.copy(id = doc.id)
+                    }.sortedByDescending { it.lastPlayedTimestamp }
+                    trySend(list)
+                }
+            }
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun recordOnlineHistory(
+        user1Id: String, user1Name: String, user1Gender: String,
+        user2Id: String, user2Name: String, user2Gender: String,
+        category: String
+    ) {
+        if (user1Id == "offline_demo_user" || user2Id == "offline_demo_user") return
+        val now = System.currentTimeMillis()
+        try {
+            val item1 = OnlineHistoryItem(
+                id = "${user1Id}_${user2Id}",
+                userId = user1Id,
+                opponentId = user2Id,
+                opponentName = user2Name,
+                opponentGender = user2Gender,
+                category = category,
+                lastPlayedTimestamp = now
+            )
+            val item2 = OnlineHistoryItem(
+                id = "${user2Id}_${user1Id}",
+                userId = user2Id,
+                opponentId = user1Id,
+                opponentName = user1Name,
+                opponentGender = user1Gender,
+                category = category,
+                lastPlayedTimestamp = now
+            )
+            firestore.collection("online_history").document(item1.id).set(item1)
+            firestore.collection("online_history").document(item2.id).set(item2)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun sendGameInvite(toUserId: String, toUserName: String): String {
+        val user = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
+        val myName = user.nickname?.takeIf { it.isNotBlank() } ?: user.displayName
+        val inviteId = UUID.randomUUID().toString()
+        val invite = GameInvite(
+            id = inviteId,
+            fromUserId = user.uid,
+            fromUserName = myName,
+            fromUserGender = user.gender,
+            toUserId = toUserId,
+            toUserName = toUserName,
+            status = "pending",
+            timestamp = System.currentTimeMillis()
+        )
+        if (user.uid != "offline_demo_user") {
+            firestore.collection("game_invites").document(inviteId).set(invite).await()
+        }
+        return inviteId
+    }
+
+    override fun observeIncomingGameInvites(userId: String): Flow<List<GameInvite>> = callbackFlow {
+        if (userId == "offline_demo_user") {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        val listener = firestore.collection("game_invites")
+            .whereEqualTo("toUserId", userId)
+            .whereEqualTo("status", "pending")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                if (snapshot != null) {
+                    val list = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(GameInvite::class.java)?.copy(id = doc.id)
+                    }.sortedByDescending { it.timestamp }
+                    trySend(list)
+                }
+            }
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun acceptGameInvite(inviteId: String, category: String): String {
+        val inviteDoc = firestore.collection("game_invites").document(inviteId).get().await()
+        val invite = inviteDoc.toObject(GameInvite::class.java) ?: throw IllegalArgumentException("Davet bulunamadı.")
+        
+        val currentUser = _currentUser.value
+        val myGender = currentUser?.gender ?: "Erkek"
+        val myName = currentUser?.nickname?.takeIf { it.isNotBlank() } ?: currentUser?.displayName ?: "Oyuncu"
+
+        val sessionId = createSession(
+            user1Id = invite.fromUserId,
+            user1Name = invite.fromUserName,
+            user1Gender = invite.fromUserGender,
+            user2Id = invite.toUserId,
+            user2Name = myName,
+            user2Gender = myGender,
+            category = category
+        )
+
+        firestore.collection("game_invites").document(inviteId).update(
+            mapOf(
+                "status" to "accepted",
+                "selectedCategory" to category,
+                "createdSessionId" to sessionId
+            )
+        ).await()
+
+        return sessionId
+    }
+
+    override suspend fun rejectGameInvite(inviteId: String) {
+        try {
+            firestore.collection("game_invites").document(inviteId).update("status", "rejected").await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

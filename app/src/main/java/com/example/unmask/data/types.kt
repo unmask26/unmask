@@ -140,3 +140,28 @@ data class PublicVideo(
     val likedBy: List<String> = emptyList(),
     val comments: List<Comment> = emptyList()
 )
+
+@Serializable
+data class OnlineHistoryItem(
+    val id: String = "",
+    val userId: String = "",
+    val opponentId: String = "",
+    val opponentName: String = "",
+    val opponentGender: String = "Erkek",
+    val category: String = "",
+    val lastPlayedTimestamp: Long = 0L
+)
+
+@Serializable
+data class GameInvite(
+    val id: String = "",
+    val fromUserId: String = "",
+    val fromUserName: String = "",
+    val fromUserGender: String = "Erkek",
+    val toUserId: String = "",
+    val toUserName: String = "",
+    val status: String = "pending", // "pending", "accepted", "rejected"
+    val selectedCategory: String = "",
+    val createdSessionId: String = "",
+    val timestamp: Long = 0L
+)
