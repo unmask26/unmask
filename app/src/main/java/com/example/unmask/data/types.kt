@@ -108,7 +108,12 @@ data class OnlineSession(
     val user1TaskCount: Int = 0,
     val user2TaskCount: Int = 0,
     val user1Rating: Int = 0,
-    val user2Rating: Int = 0
+    val user2Rating: Int = 0,
+    val usedTaskIds: List<String> = emptyList(),   // Tracks game-based tasks used in this session
+    val usedTaskTexts: List<String> = emptyList(), // Tracks matchmaking tasks used in this session
+    val replayRequestStatus: String = "none",      // "none", "requested", "accepted", "rejected"
+    val replayRequesterId: String = "",
+    val replayRequesterName: String = ""
 )
 
 @Serializable

@@ -125,15 +125,16 @@ fun DunyaScreen(
     val onlineUsers by repository.getOnlineUsers(user.uid).collectAsState(initial = emptyList())
 
     // Heartbeat & Active Presence registration inside the lobby
+    val displayedName = remember(user) { user.nickname?.takeIf { it.isNotBlank() } ?: user.displayName }
     LaunchedEffect(activeSession, selectedOnlineCategory) {
         while (activeSession == null) {
             val now = System.currentTimeMillis()
             val banUntil = user.banUntil ?: 0L
             if (banUntil <= now) {
                 val status = if (selectedOnlineCategory != null) "searching:$selectedOnlineCategory" else "idle"
-                repository.updatePresence(user.uid, user.displayName, status, gender = user.gender)
+                repository.updatePresence(user.uid, displayedName, status, gender = user.gender)
             } else {
-                repository.updatePresence(user.uid, user.displayName, "offline", banUntil, gender = user.gender)
+                repository.updatePresence(user.uid, displayedName, "offline", banUntil, gender = user.gender)
             }
             delay(4_000)
         }
@@ -154,7 +155,7 @@ fun DunyaScreen(
         if (sessionId != null) {
             val isCreator = activeSession?.user1Id == user.uid
             while (true) {
-                repository.updatePresence(user.uid, user.displayName, "playing")
+                repository.updatePresence(user.uid, displayedName, "playing")
                 if (isCreator) {
                     repository.updateSessionHeartbeat(sessionId)
                 }
@@ -365,7 +366,7 @@ fun DunyaScreen(
                                             coroutineScope.launch {
                                                 repository.createSession(
                                                     user1Id = user.uid,
-                                                    user1Name = user.displayName,
+                                                    user1Name = displayedName,
                                                     user1Gender = user.gender,
                                                     user2Id = targetUser.userId,
                                                     user2Name = targetUser.userName,
@@ -424,45 +425,90 @@ fun DunyaScreen(
                 }
 
                 if (showPasswordPrompt) {
+                    val hasAdultPassword = !user.adultPassword.isNullOrBlank()
+                    // Giriş engellendi mi? (isAdult=false VEYA şifre set edilmemiş)
+                    val isBlocked = !user.isAdult || !hasAdultPassword
+
                     AlertDialog(
                         onDismissRequest = {
                             showPasswordPrompt = false
                             inputPassword = ""
                             passwordError = false
                         },
-                        title = { Text("Adult İçerik Doğrulaması", fontWeight = FontWeight.Bold) },
+                        title = { Text("+18 İçerik Doğrulaması", fontWeight = FontWeight.Bold) },
                         text = {
                             Column {
-                                Text("Bu kategori +18 içerik barındırmaktadır. Devam etmek için şifreyi giriniz.")
-                                Spacer(modifier = Modifier.height(8.dp))
-                                TextField(
-                                    value = inputPassword,
-                                    onValueChange = { inputPassword = it },
-                                    placeholder = { Text("Şifre") },
-                                    singleLine = true,
-                                    isError = passwordError,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                if (passwordError) {
-                                    Text("Hatalı şifre! Lütfen tekrar deneyin.", color = Color.Red, fontSize = 12.sp)
+                                if (!user.isAdult) {
+                                    Icon(
+                                        imageVector = Icons.Default.Timer,
+                                        contentDescription = null,
+                                        tint = Color.Red,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "Bu kategori yalnızca 18 yaş üzeri kullanıcılara açıktır.\n\n" +
+                                        "Profil ayarlarından doğum tarihinizi girerek yaş doğrulaması yapmanız gerekmektedir.",
+                                        fontSize = 14.sp
+                                    )
+                                } else if (!hasAdultPassword) {
+                                    Icon(
+                                        imageVector = Icons.Default.Timer,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "Adult içeriğe erişmek için bir şifre oluşturmanız gerekmektedir.\n\n" +
+                                        "Profil ayarlarından adult içerik şifrenizi belirleyiniz.",
+                                        fontSize = 14.sp
+                                    )
+                                } else {
+                                    Text("Bu kategori +18 içerik barındırmaktadır. Profilinizde kayıtlı şifrenizi giriniz.")
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    TextField(
+                                        value = inputPassword,
+                                        onValueChange = { inputPassword = it },
+                                        placeholder = { Text("Şifre") },
+                                        singleLine = true,
+                                        isError = passwordError,
+                                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    if (passwordError) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("Hatalı şifre! Lütfen tekrar deneyin.", color = Color.Red, fontSize = 12.sp)
+                                    }
                                 }
                             }
                         },
                         confirmButton = {
-                            Button(
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
-                                onClick = {
-                                    if (inputPassword == "adult") {
+                            if (isBlocked) {
+                                // Sadece kapat — giriş yok
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                                    onClick = {
                                         showPasswordPrompt = false
-                                        selectedOnlineCategory = pendingCategory
                                         inputPassword = ""
                                         passwordError = false
-                                    } else {
-                                        passwordError = true
                                     }
-                                }
-                            ) {
-                                Text("GİRİŞ")
+                                ) { Text("TAMAM") }
+                            } else {
+                                // Şifre doğrulama
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                                    onClick = {
+                                        if (inputPassword == user.adultPassword) {
+                                            showPasswordPrompt = false
+                                            selectedOnlineCategory = pendingCategory
+                                            inputPassword = ""
+                                            passwordError = false
+                                        } else {
+                                            passwordError = true
+                                        }
+                                    }
+                                ) { Text("GİRİŞ") }
                             }
                         },
                         dismissButton = {
@@ -556,16 +602,62 @@ fun DunyaScreen(
                             isUser1 = isUser1,
                             customGames = customGames,
                             onGameSelected = { gameId ->
-                                val tasks = (Constants.TASKS + customTasks).filter { it.gameId == gameId }
-                                val task = tasks.randomOrNull() ?: Constants.TASKS.first()
-                                val updated = session.copy(
-                                    selectedGameId = gameId,
-                                    status = "playing",
-                                    currentTurn = session.user2Id,
-                                    activeCardCode = task.cardCode,
-                                    activeTaskId = task.id,
-                                    lastHeartbeat = System.currentTimeMillis()
-                                )
+                                // Çevrimiçi lobi seçimlerinde cinsiyete göre görev havuzu kullan
+                                val isOnlineMatchmaking = session.commonCategory.isNotEmpty()
+                                val updated: OnlineSession
+                                if (isOnlineMatchmaking) {
+                                    // İlk sıra session.user2Id'de (oyun seçiminde currentTurn user2'ye geçer)
+                                    val firstTurnUserId = session.user2Id
+                                    val currentTurnGender = if (firstTurnUserId == session.user1Id) session.user1Gender else session.user2Gender
+                                    val otherGender = if (firstTurnUserId == session.user1Id) session.user2Gender else session.user1Gender
+                                    val poolKey = when {
+                                        currentTurnGender == "Kadın" && otherGender == "Erkek" -> "kadinin_erkege"
+                                        currentTurnGender == "Erkek" && otherGender == "Kadın" -> "erkege_kadina"
+                                        currentTurnGender == "Kadın" && otherGender == "Kadın" -> "kadinin_kadina"
+                                        currentTurnGender == "Erkek" && otherGender == "Erkek" -> "erkege_erkege"
+                                        else -> "erkege_kadina"
+                                    }
+                                    val fullPool: List<String> = when (session.commonCategory.lowercase()) {
+                                        "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+                                        "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
+                                        "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
+                                        "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
+                                        "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
+                                        "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
+                                        "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
+                                        "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
+                                        else         -> emptyList()
+                                    }
+                                    val availablePool = fullPool.filter { it !in session.usedTaskTexts }
+                                    val taskPool = if (availablePool.isEmpty()) fullPool else availablePool
+                                    val chosenText = taskPool.randomOrNull() ?: "Bir görev seçin."
+                                    val newUsedTexts = if (availablePool.isEmpty()) listOf(chosenText) else (session.usedTaskTexts + chosenText)
+                                    updated = session.copy(
+                                        selectedGameId = gameId,
+                                        status = "playing",
+                                        currentTurn = session.user2Id,
+                                        activeCardCode = "ON",
+                                        activeTaskId = "online-task-${java.util.UUID.randomUUID()}",
+                                        activeTaskText = chosenText,
+                                        usedTaskTexts = newUsedTexts,
+                                        lastHeartbeat = System.currentTimeMillis()
+                                    )
+                                } else {
+                                    val allTasks = (Constants.TASKS + customTasks).filter { it.gameId == gameId }
+                                    val availableTasks = allTasks.filter { it.id !in session.usedTaskIds }
+                                    val taskPool = if (availableTasks.isEmpty()) allTasks else availableTasks
+                                    val task = taskPool.randomOrNull() ?: Constants.TASKS.first()
+                                    val newUsedIds = if (availableTasks.isEmpty()) listOf(task.id) else (session.usedTaskIds + task.id)
+                                    updated = session.copy(
+                                        selectedGameId = gameId,
+                                        status = "playing",
+                                        currentTurn = session.user2Id,
+                                        activeCardCode = task.cardCode,
+                                        activeTaskId = task.id,
+                                        usedTaskIds = newUsedIds,
+                                        lastHeartbeat = System.currentTimeMillis()
+                                    )
+                                }
                                 coroutineScope.launch { repository.updateSession(updated) }
                             },
                             onTimeout = {
@@ -588,6 +680,17 @@ fun DunyaScreen(
                             userId = user.uid,
                             customGames = customGames,
                             customTasks = customTasks,
+                            repository = repository,
+                            onCloseSession = {
+                                coroutineScope.launch { repository.deleteSession(session.id) }
+                            }
+                        )
+                    }
+                    "finished" -> {
+                        GameFinishedView(
+                            session = session,
+                            userId = user.uid,
+                            userNickname = displayedName,
                             repository = repository,
                             onCloseSession = {
                                 coroutineScope.launch { repository.deleteSession(session.id) }
@@ -1058,32 +1161,41 @@ fun OnlineGameplayView(
                     currentTurnGender == "Erkek" && otherGender == "Erkek" -> "erkege_erkege"
                     else -> "erkege_kadina"
                 }
-                val chosenText = when (session.commonCategory.lowercase()) {
-                    "iliskiler" -> Constants.ONLINE_RELATION_TASKS[poolKey]?.randomOrNull() ?: "İlişkiler hakkında samimi bir itirafta bulun."
-                    "adrenalin" -> Constants.ONLINE_ADRENALIN_TASKS[poolKey]?.randomOrNull() ?: "Adrenalin dolu bir anını anlat."
-                    "bilgi" -> Constants.ONLINE_BILGI_TASKS[poolKey]?.randomOrNull() ?: "Genel kültür bilgini test et."
-                    "aktuel" -> Constants.ONLINE_AKTUEL_TASKS[poolKey]?.randomOrNull() ?: "Aktüel bir konu hakkında yorum yap."
-                    "hatiralar" -> Constants.ONLINE_HATIRALAR_TASKS[poolKey]?.randomOrNull() ?: "Unutamadığın bir hatıranı anlat."
-                    "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey]?.randomOrNull() ?: "Bir fantezini samimiyetle paylaş."
-                    "adult" -> Constants.ONLINE_ADULT_TASKS[poolKey]?.randomOrNull() ?: "+18 cesur bir itirafta bulun."
-                    "softhub" -> Constants.ONLINE_SOFTHUB_TASKS[poolKey]?.randomOrNull() ?: "Eğlenceli bir itirafta bulun."
-                    else -> "Bir görev seçin."
+                val fullPool: List<String> = when (session.commonCategory.lowercase()) {
+                    "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+                    "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
+                    "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
+                    "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
+                    "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
+                    "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
+                    "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
+                    "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
+                    else         -> emptyList()
                 }
+                val availablePool = fullPool.filter { it !in session.usedTaskTexts }
+                val taskPool = if (availablePool.isEmpty()) fullPool else availablePool
+                val chosenText = taskPool.randomOrNull() ?: "Bir görev seçin."
+                val newUsedTexts = if (availablePool.isEmpty()) listOf(chosenText) else (session.usedTaskTexts + chosenText)
                 repository.updateSession(
                     session.copy(
                         activeCardCode = "ON",
                         activeTaskId = "online-task-${java.util.UUID.randomUUID()}",
                         activeTaskText = chosenText,
+                        usedTaskTexts = newUsedTexts,
                         lastHeartbeat = System.currentTimeMillis()
                     )
                 )
             } else {
-                val tasks = (Constants.TASKS + customTasks).filter { it.gameId == activeGame.id }
-                val task = tasks.randomOrNull() ?: Constants.TASKS.first()
+                val allTasks = (Constants.TASKS + customTasks).filter { it.gameId == activeGame.id }
+                val availableTasks = allTasks.filter { it.id !in session.usedTaskIds }
+                val taskPool = if (availableTasks.isEmpty()) allTasks else availableTasks
+                val task = taskPool.randomOrNull() ?: Constants.TASKS.first()
+                val newUsedIds = if (availableTasks.isEmpty()) listOf(task.id) else (session.usedTaskIds + task.id)
                 repository.updateSession(
                     session.copy(
                         activeCardCode = task.cardCode,
                         activeTaskId = task.id,
+                        usedTaskIds = newUsedIds,
                         lastHeartbeat = System.currentTimeMillis()
                     )
                 )
@@ -1198,6 +1310,7 @@ fun OnlineGameplayView(
                                 permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO))
                             }
 
+                            // Camera preview is always present
                             AndroidView(
                                 factory = { ctx ->
                                     val previewView = PreviewView(ctx)
@@ -1306,6 +1419,41 @@ fun OnlineGameplayView(
                                 },
                                 modifier = Modifier.fillMaxSize()
                             )
+
+                            // Video playback overlay: shown on top of camera when video is recorded
+                            if (recordedUri != null) {
+                                AndroidView(
+                                    factory = { ctx ->
+                                        val rootLayout = android.widget.FrameLayout(ctx).apply {
+                                            layoutParams = android.widget.FrameLayout.LayoutParams(
+                                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                                            )
+                                        }
+                                        val vv = android.widget.VideoView(ctx).apply {
+                                            layoutParams = android.widget.FrameLayout.LayoutParams(
+                                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                                                android.view.Gravity.CENTER
+                                            )
+                                        }
+                                        rootLayout.addView(vv)
+                                        rootLayout
+                                    },
+                                    update = { root ->
+                                        val vv = root.getChildAt(0) as android.widget.VideoView
+                                        if (vv.tag != recordedUri) {
+                                            vv.tag = recordedUri
+                                            vv.setVideoURI(recordedUri)
+                                            vv.setOnPreparedListener { mp ->
+                                                mp.isLooping = true
+                                                vv.start()
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
                             // Top overlay
                             Row(
@@ -1431,7 +1579,8 @@ fun OnlineGameplayView(
                                                         isRecording = false
                                                     } else {
                                                         recordedUri = null
-                                                        val file = File(context.cacheDir, "temp_online.mp4")
+                                                        val ts = System.currentTimeMillis()
+                                                        val file = File(context.cacheDir, "temp_online_${ts}.mp4")
                                                         val outputOptions = FileOutputOptions.Builder(file).build()
                                                         val recording = capture.output
                                                             .prepareRecording(context, outputOptions)
@@ -1486,15 +1635,23 @@ fun OnlineGameplayView(
                                                 isUploading = true
                                                 coroutineScope.launch {
                                                     try {
-                                                        val url = repository.uploadOnlineVideo(session.id, recordedUri!!)
+                                                        val uriSnapshot = recordedUri ?: return@launch
+                                                        val url = repository.uploadOnlineVideo(session.id, uriSnapshot)
+                                                        val newUser1Count = if (session.user1Id == userId) session.user1TaskCount + 1 else session.user1TaskCount
+                                                        val newUser2Count = if (session.user2Id == userId) session.user2TaskCount + 1 else session.user2TaskCount
                                                         repository.updateSession(
                                                             session.copy(
                                                                 videoUrl = url,
                                                                 videoSenderId = userId,
                                                                 currentTurn = if (session.user1Id == userId) session.user2Id else session.user1Id,
+                                                                user1TaskCount = newUser1Count,
+                                                                user2TaskCount = newUser2Count,
                                                                 lastHeartbeat = System.currentTimeMillis()
                                                             )
                                                         )
+                                                        // Safely tear down camera before leaving screen
+                                                        try { cameraProviderState.value?.unbindAll() } catch (_: Exception) {}
+                                                        recordedUri = null
                                                         showCamera = false
                                                     } catch (e: Exception) {
                                                         e.printStackTrace()
@@ -1521,7 +1678,9 @@ fun OnlineGameplayView(
                                     }
                                 }
 
-                                if (recordedUri != null && !isUploading) {
+                                // Adult kategorisinde dünyaya yayınlanamaz
+                                val isAdultCategory = session.commonCategory.lowercase() == "adult"
+                                if (recordedUri != null && !isUploading && !isAdultCategory) {
                                     Button(
                                         onClick = {
                                             isPublishingToWorld = true
@@ -1771,18 +1930,70 @@ fun OnlineGameplayView(
                 if (session.videoSenderId != userId) {
                     // Receiver plays the video ONCE in full screen
                     var videoFinished by remember(session.videoUrl) { mutableStateOf(false) }
+                    var localVideoPath by remember(session.videoUrl) { mutableStateOf<String?>(null) }
+                    var isCaching by remember(session.videoUrl) { mutableStateOf(true) }
+
+                    // Download video to local cache before playing to avoid buffering
+                    LaunchedEffect(session.videoUrl) {
+                        if (session.videoUrl.isNotEmpty()) {
+                            isCaching = true
+                            localVideoPath = null
+                            try {
+                                val cachedFile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    // videoUrl'in hash'ini kullanarak her farklı video için benzersiz cache dosyası oluştur
+                                    val urlHash = session.videoUrl.hashCode().let { if (it < 0) "n${-it}" else "$it" }
+                                    val fileName = "online_recv_${urlHash}.mp4"
+                                    val file = java.io.File(context.cacheDir, fileName)
+                                    // Re-download only if file doesn't exist or is empty
+                                    if (!file.exists() || file.length() == 0L) {
+                                        val url = java.net.URL(session.videoUrl)
+                                        url.openStream().use { input ->
+                                            file.outputStream().use { output ->
+                                                input.copyTo(output)
+                                            }
+                                        }
+                                    }
+                                    file
+                                }
+                                localVideoPath = cachedFile.absolutePath
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                // Fallback: stream directly if download fails
+                                localVideoPath = session.videoUrl
+                            } finally {
+                                isCaching = false
+                            }
+                        }
+                    }
 
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(Color.Black)
                     ) {
-                        if (!videoFinished) {
-                            androidx.compose.runtime.key(session.videoUrl) {
+                        if (isCaching) {
+                            // Show loading screen while video is being cached
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = Color.White)
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "Video yükleniyor...",
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        } else if (!videoFinished && localVideoPath != null) {
+                            androidx.compose.runtime.key(localVideoPath) {
                                 AndroidView(
                                     factory = { ctx ->
                                         VideoView(ctx).apply {
-                                            setVideoPath(session.videoUrl)
+                                            setVideoPath(localVideoPath!!)
                                             setOnPreparedListener { start() }
                                             setOnCompletionListener {
                                                 videoFinished = true
@@ -1847,38 +2058,111 @@ fun OnlineGameplayView(
                                         color = Color.White,
                                         fontSize = 22.sp
                                     )
-                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Videoyu tekrar izleyebilir veya yeni kart çekebilirsin.",
+                                        color = Color.White.copy(alpha = 0.6f),
+                                        fontSize = 13.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(24.dp))
 
-                                    Button(
-                                        onClick = {
-                                            val videoUrlToDelete = session.videoUrl
-                                            coroutineScope.launch {
-                                                if (videoUrlToDelete.isNotEmpty()) {
-                                                    repository.deleteOnlineVideo(videoUrlToDelete)
-                                                }
-                                                val tasks = (Constants.TASKS + customTasks).filter { it.gameId == activeGame.id }
-                                                val task = tasks.randomOrNull() ?: Constants.TASKS.first()
-                                                repository.updateSession(
-                                                    session.copy(
-                                                        activeCardCode = task.cardCode,
-                                                        activeTaskId = task.id,
-                                                        videoUrl = "",
-                                                        downloadRequestStatus = "none",
-                                                        currentTurn = userId,
-                                                        lastHeartbeat = System.currentTimeMillis()
-                                                    )
-                                                )
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6), contentColor = Color.White),
+                                    // Tekrar İzle
+                                    OutlinedButton(
+                                        onClick = { videoFinished = false },
+                                        border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.7f)),
                                         shape = RoundedCornerShape(16.dp),
                                         modifier = Modifier
                                             .height(56.dp)
                                             .fillMaxWidth(0.6f)
                                     ) {
-                                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Draw Card", tint = Color.White)
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = "Tekrar İzle",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                         Spacer(modifier = Modifier.width(8.dp))
-                                        Text("KART ÇEK", fontWeight = FontWeight.Black)
+                                        Text("TEKRAR İZLE", fontWeight = FontWeight.Black, color = Color.White)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    val totalTasksDone = session.user1TaskCount + session.user2TaskCount
+                                    val maxTasks = 10
+                                    if (totalTasksDone >= maxTasks) {
+                                        Button(
+                                            onClick = {
+                                                val videoUrlToDelete = session.videoUrl
+                                                coroutineScope.launch {
+                                                    if (videoUrlToDelete.isNotEmpty()) repository.deleteOnlineVideo(videoUrlToDelete)
+                                                    repository.updateSession(
+                                                        session.copy(
+                                                            status = "finished",
+                                                            videoUrl = "",
+                                                            downloadRequestStatus = "none",
+                                                            lastHeartbeat = System.currentTimeMillis()
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981), contentColor = Color.White),
+                                            shape = RoundedCornerShape(16.dp),
+                                            modifier = Modifier.height(56.dp).fillMaxWidth(0.6f)
+                                        ) {
+                                            Text("🏆 OYUNU BİTİR", fontWeight = FontWeight.Black)
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                val videoUrlToDelete = session.videoUrl
+                                                coroutineScope.launch {
+                                                    if (videoUrlToDelete.isNotEmpty()) {
+                                                        repository.deleteOnlineVideo(videoUrlToDelete)
+                                                    }
+                                                    val isMatchmaking = session.commonCategory.isNotEmpty()
+                                                    if (isMatchmaking) {
+                                                        repository.updateSession(
+                                                            session.copy(
+                                                                activeCardCode = "",
+                                                                activeTaskId = "",
+                                                                activeTaskText = "",
+                                                                videoUrl = "",
+                                                                downloadRequestStatus = "none",
+                                                                currentTurn = userId,
+                                                                lastHeartbeat = System.currentTimeMillis()
+                                                            )
+                                                        )
+                                                    } else {
+                                                        val allTasks = (Constants.TASKS + customTasks).filter { it.gameId == activeGame.id }
+                                                        val availableTasks = allTasks.filter { it.id !in session.usedTaskIds }
+                                                        val taskPool = if (availableTasks.isEmpty()) allTasks else availableTasks
+                                                        val task = taskPool.randomOrNull() ?: Constants.TASKS.first()
+                                                        val newUsedIds = if (availableTasks.isEmpty()) listOf(task.id) else (session.usedTaskIds + task.id)
+                                                        repository.updateSession(
+                                                            session.copy(
+                                                                activeCardCode = task.cardCode,
+                                                                activeTaskId = task.id,
+                                                                usedTaskIds = newUsedIds,
+                                                                videoUrl = "",
+                                                                downloadRequestStatus = "none",
+                                                                currentTurn = userId,
+                                                                lastHeartbeat = System.currentTimeMillis()
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6), contentColor = Color.White),
+                                            shape = RoundedCornerShape(16.dp),
+                                            modifier = Modifier
+                                                .height(56.dp)
+                                                .fillMaxWidth(0.6f)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Draw Card", tint = Color.White)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("KART ÇEK (${totalTasksDone / 2 + 1}/5)", fontWeight = FontWeight.Black)
+                                        }
                                     }
 
                                     Spacer(modifier = Modifier.height(16.dp))
@@ -2324,6 +2608,203 @@ fun OnlineCategoryCard(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun GameFinishedView(
+    session: OnlineSession,
+    userId: String,
+    userNickname: String,
+    repository: DataRepository,
+    onCloseSession: () -> Unit
+) {
+    val coroutineScope = rememberCoroutineScope()
+    val isRequester = session.replayRequesterId == userId
+    val isOpponentRequesting = session.replayRequestStatus == "requested" && !isRequester
+
+    if (isOpponentRequesting) {
+        AlertDialog(
+            onDismissRequest = {
+                coroutineScope.launch {
+                    repository.updateSession(session.copy(replayRequestStatus = "rejected"))
+                }
+            },
+            title = {
+                Text(text = "Tekrar Oyun İsteği", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(
+                    text = "${session.replayRequesterName} size tekrar oyun isteği gönderdi.",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            val isMatchmaking = session.commonCategory.isNotEmpty()
+                            val nextStatus = if (isMatchmaking) "playing" else "game_selection"
+                            repository.updateSession(
+                                session.copy(
+                                    status = nextStatus,
+                                    user1TaskCount = 0,
+                                    user2TaskCount = 0,
+                                    activeCardCode = "",
+                                    activeTaskId = "",
+                                    activeTaskText = "",
+                                    videoUrl = "",
+                                    downloadRequestStatus = "none",
+                                    usedTaskIds = emptyList(),
+                                    usedTaskTexts = emptyList(),
+                                    replayRequestStatus = "none",
+                                    replayRequesterId = "",
+                                    replayRequesterName = "",
+                                    currentTurn = session.user2Id,
+                                    lastHeartbeat = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Text("KABUL ET", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            repository.updateSession(session.copy(replayRequestStatus = "rejected"))
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("REDDET", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth(0.9f)
+        ) {
+            Text(
+                text = "🏆",
+                fontSize = 64.sp
+            )
+            Text(
+                text = "OYUN TAMAMLANDI!",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Black,
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "Her iki oyuncu da 5 görevini başarıyla tamamladı.",
+                fontSize = 14.sp,
+                color = Color.Black.copy(alpha = 0.6f),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3F4F6)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = session.user1Name, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text(text = "${session.user1TaskCount}/5 Görev", fontWeight = FontWeight.Black, color = Color(0xFF10B981))
+                    }
+                    Divider(color = Color.Black.copy(alpha = 0.08f))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = session.user2Name, fontWeight = FontWeight.Bold, color = Color.Black)
+                        Text(text = "${session.user2TaskCount}/5 Görev", fontWeight = FontWeight.Black, color = Color(0xFF10B981))
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (session.replayRequestStatus == "requested" && isRequester) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color(0xFF8B5CF6))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Tekrar oyun isteği gönderildi. Yanıt bekleniyor...",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else if (session.replayRequestStatus == "rejected" && isRequester) {
+                Text(
+                    text = "Tekrar oyun isteği reddedildi.",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Red,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            repository.updateSession(
+                                session.copy(
+                                    replayRequestStatus = "requested",
+                                    replayRequesterId = userId,
+                                    replayRequesterName = userNickname
+                                )
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "Replay", tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "TEKRAR OYNA", fontWeight = FontWeight.Black, fontSize = 16.sp)
+                }
+            }
+
+            Button(
+                onClick = onCloseSession,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Text(text = "LOBİYE DÖN", fontWeight = FontWeight.Black, fontSize = 16.sp)
             }
         }
     }

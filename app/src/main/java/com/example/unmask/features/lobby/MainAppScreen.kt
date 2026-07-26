@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
@@ -223,9 +222,6 @@ fun MainAppScreen(
                     "dunya" -> DunyaFeedScreen(
                         repository = repository
                     )
-                    "test" -> TestScreen(
-                        repository = repository
-                    )
                     "profil" -> ProfileScreen(
                         repository = repository,
                         onProfileSaved = {
@@ -271,8 +267,7 @@ fun BottomNav(
                     BottomTabItem("gecmis", Icons.Default.History, "GEÇMİŞ"),
                     BottomTabItem("qr", Icons.Default.QrCodeScanner, "QR"),
                     BottomTabItem("ani", Icons.Default.Book, "ANI"),
-                    BottomTabItem("dunya", Icons.Default.Public, "DÜNYA"),
-                    BottomTabItem("test", Icons.Default.Face, "TEST")
+                    BottomTabItem("dunya", Icons.Default.Public, "DÜNYA")
                 )
 
                 tabs.forEach { tab ->
