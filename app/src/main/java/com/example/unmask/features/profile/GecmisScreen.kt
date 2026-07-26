@@ -65,10 +65,12 @@ fun GecmisScreen(
     val onlineOpponents by repository.getOnlineHistoryOpponents(userId).collectAsState(initial = emptyList())
     val allPresences by repository.getAllUserPresences().collectAsState(initial = emptyList())
     val incomingRequests by repository.observeIncomingGameRequests(userId).collectAsState(initial = emptyList())
+    val sentRequests by repository.observeSentGameRequests(userId).collectAsState(initial = emptyList())
 
     var selectedOpponentForRequest by remember { mutableStateOf<OnlineOpponentHistory?>(null) }
     var selectedRequestForLobby by remember { mutableStateOf<DirectGameRequest?>(null) }
     var isSendingRequest by remember { mutableStateOf(false) }
+    var isStartingSession by remember { mutableStateOf(false) }
 
     val categories = remember {
         listOf(
@@ -122,6 +124,129 @@ fun GecmisScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
+                // 📤 GÖNDERİLEN OYUN İSTEKLERİ KARTI
+                if (sentRequests.isNotEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(2.dp, Color(0xFF10B981), RoundedCornerShape(20.dp))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(Color(0xFF10B981), CircleShape)
+                                    )
+                                    Text(
+                                        text = "GÖNDERİLEN OYUN İSTEKLERİ (${sentRequests.size})",
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 14.sp,
+                                        color = Color.Black
+                                    )
+                                }
+
+                                sentRequests.forEach { req ->
+                                    val isLobbySelected = req.status == "lobby_selected"
+                                    val catName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.uppercase()
+
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(if (isLobbySelected) Color(0xFFD1FAE5) else Color(0xFFF3F4F6))
+                                            .border(1.dp, if (isLobbySelected) Color(0xFF10B981) else Color.Transparent, RoundedCornerShape(14.dp))
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = req.receiverNickname.ifEmpty { "Oyuncu" },
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 16.sp,
+                                                    color = Color.Black
+                                                )
+                                                Text(
+                                                    text = if (isLobbySelected) "$catName LOBİSİNDE LOBİ SEÇİLDİ! 🎯" else "İstek gönderildi (Yanıt bekleniyor...)",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isLobbySelected) Color(0xFF047857) else Color.Black.copy(alpha = 0.5f)
+                                                )
+                                            }
+
+                                            IconButton(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        repository.cancelSentGameRequest(req.id)
+                                                    }
+                                                },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "İptal Et",
+                                                    tint = Color.Red.copy(alpha = 0.6f)
+                                                )
+                                            }
+                                        }
+
+                                        // 🎯 KARŞI TARAF LOBİ SEÇİNCE ÇIKAN "BU LOBİDE - OYUNA BAŞLA" İBARESİ
+                                        if (isLobbySelected) {
+                                            Button(
+                                                onClick = {
+                                                    isStartingSession = true
+                                                    coroutineScope.launch {
+                                                        try {
+                                                            repository.launchSessionFromDirectRequest(req)
+                                                            Toast.makeText(context, "$catName lobisinde oyun başlatılıyor!", Toast.LENGTH_SHORT).show()
+                                                        } catch (e: Exception) {
+                                                            e.printStackTrace()
+                                                            Toast.makeText(context, "Oyun başlatılamadı: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                                        } finally {
+                                                            isStartingSession = false
+                                                        }
+                                                    }
+                                                },
+                                                enabled = !isStartingSession,
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                                shape = RoundedCornerShape(12.dp),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(44.dp)
+                                            ) {
+                                                if (isStartingSession) {
+                                                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp))
+                                                } else {
+                                                    Text(
+                                                        text = "${req.receiverNickname} $catName LOBİSİNDE — OYUNA BAŞLA 🚀",
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 12.sp
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // 📩 GELEN OYUN İSTEKLERİ KARTI
                 if (incomingRequests.isNotEmpty()) {
                     item {
@@ -155,6 +280,9 @@ fun GecmisScreen(
                                 }
 
                                 incomingRequests.forEach { req ->
+                                    val isLobbyChosenByMe = req.status == "lobby_selected"
+                                    val chosenCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.uppercase()
+
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -172,7 +300,7 @@ fun GecmisScreen(
                                                 color = Color.Black
                                             )
                                             Text(
-                                                text = "Size oyun isteği gönderdi",
+                                                text = if (isLobbyChosenByMe) "$chosenCatName lobisi seçildi (Başlatılması bekleniyor...)" else "Size oyun isteği gönderdi",
                                                 fontSize = 11.sp,
                                                 color = Color.Black.copy(alpha = 0.6f)
                                             )
@@ -200,7 +328,11 @@ fun GecmisScreen(
                                                 shape = RoundedCornerShape(12.dp),
                                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                             ) {
-                                                Text("LOBİ SEÇ", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                                Text(
+                                                    text = if (isLobbyChosenByMe) "LOBİ DEĞİŞTİR" else "LOBİ SEÇ",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 12.sp
+                                                )
                                             }
                                         }
                                     }
@@ -234,7 +366,7 @@ fun GecmisScreen(
 
                         val statusText = remember(presence, isOnline, opp.lastPlayedTimestamp) {
                             if (isOnline) {
-                                val st = presence?.status ?: "idle"
+                                val st = presence.status
                                 when {
                                     st.startsWith("searching:") -> {
                                         val catKey = st.substringAfter("searching:")
@@ -342,7 +474,7 @@ fun GecmisScreen(
                             color = if (isOnline) Color(0xFF10B981) else Color.Black.copy(alpha = 0.5f)
                         )
                         Text(
-                            text = "Bu kullanıcıya oyun davet kartı gönderebilirsiniz. Başka bir oyunda olsa bile anlık bildirim ulaşacaktır.",
+                            text = "Bu kullanıcıya oyun davet kartı gönderebilirsiniz. Karşı taraf lobi seçtiğinde kartınız güncellenecektir.",
                             fontSize = 12.sp,
                             color = Color.Black.copy(alpha = 0.6f)
                         )
@@ -362,7 +494,8 @@ fun GecmisScreen(
                                         senderNickname = myNickname,
                                         senderGender = myGender,
                                         receiverId = opp.opponentId,
-                                        receiverNickname = opp.opponentName
+                                        receiverNickname = opp.opponentName,
+                                        receiverGender = opp.opponentGender
                                     )
                                     Toast.makeText(context, "Oyun isteği ${opp.opponentName} kullanıcısına gönderildi!", Toast.LENGTH_SHORT).show()
                                 } catch (e: Exception) {
@@ -432,10 +565,10 @@ fun GecmisScreen(
                                             coroutineScope.launch {
                                                 try {
                                                     repository.acceptDirectGameRequest(req, cat.key)
-                                                    Toast.makeText(context, "${cat.name} lobisinde oyun başlatılıyor!", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, "${cat.name} lobisi seçildi! Gönderen taraf oyunu başlatacak.", Toast.LENGTH_SHORT).show()
                                                 } catch (e: Exception) {
                                                     e.printStackTrace()
-                                                    Toast.makeText(context, "Oyun başlatılamadı: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, "Lobi seçilemedi: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                                 } finally {
                                                     selectedRequestForLobby = null
                                                 }

@@ -149,8 +149,9 @@ data class DirectGameRequest(
     val senderGender: String = "Erkek",
     val receiverId: String = "",
     val receiverNickname: String = "",
+    val receiverGender: String = "Erkek",
     val selectedCategory: String = "",
-    val status: String = "pending", // "pending", "accepted", "rejected"
+    val status: String = "pending", // "pending", "lobby_selected", "playing", "rejected"
     val createdAt: Long = 0L,
     val sessionId: String = ""
 )

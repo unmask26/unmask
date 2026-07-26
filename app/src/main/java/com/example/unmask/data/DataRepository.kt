@@ -88,10 +88,13 @@ interface DataRepository {
     suspend fun addCommentToPublicVideo(videoId: String, commentText: String)
     fun getOnlineHistoryOpponents(userId: String): Flow<List<OnlineOpponentHistory>>
     fun getAllUserPresences(): Flow<List<OnlineUserPresence>>
-    suspend fun sendDirectGameRequest(senderId: String, senderNickname: String, senderGender: String, receiverId: String, receiverNickname: String): String
+    suspend fun sendDirectGameRequest(senderId: String, senderNickname: String, senderGender: String, receiverId: String, receiverNickname: String, receiverGender: String = "Erkek"): String
     fun observeIncomingGameRequests(userId: String): Flow<List<DirectGameRequest>>
-    suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String): String
+    fun observeSentGameRequests(userId: String): Flow<List<DirectGameRequest>>
+    suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String)
     suspend fun rejectDirectGameRequest(requestId: String)
+    suspend fun launchSessionFromDirectRequest(request: DirectGameRequest): String
+    suspend fun cancelSentGameRequest(requestId: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -1277,7 +1280,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         senderNickname: String,
         senderGender: String,
         receiverId: String,
-        receiverNickname: String
+        receiverNickname: String,
+        receiverGender: String
     ): String {
         val requestId = "req-" + UUID.randomUUID().toString()
         val request = DirectGameRequest(
@@ -1287,6 +1291,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             senderGender = senderGender,
             receiverId = receiverId,
             receiverNickname = receiverNickname,
+            receiverGender = receiverGender,
             status = "pending",
             createdAt = System.currentTimeMillis()
         )
@@ -1303,35 +1308,63 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 }
                 val requests = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(DirectGameRequest::class.java)
-                }.filter { it.receiverId == userId && it.status == "pending" }
+                }.filter { it.receiverId == userId && (it.status == "pending" || it.status == "lobby_selected") }
                  .sortedByDescending { it.createdAt }
                 trySend(requests)
             }
         awaitClose { listener.remove() }
     }
 
-    override suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String): String {
-        val userProfile = _currentUser.value
-        val myNickname = userProfile?.nickname?.takeIf { it.isNotBlank() } ?: userProfile?.displayName ?: "Oyuncu"
-        val myGender = userProfile?.gender ?: "Erkek"
+    override fun observeSentGameRequests(userId: String): Flow<List<DirectGameRequest>> = callbackFlow {
+        val listener = firestore.collection("direct_game_requests")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val requests = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(DirectGameRequest::class.java)
+                }.filter { it.senderId == userId && (it.status == "pending" || it.status == "lobby_selected") }
+                 .sortedByDescending { it.createdAt }
+                trySend(requests)
+            }
+        awaitClose { listener.remove() }
+    }
 
+    override suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String) {
+        try {
+            firestore.collection("direct_game_requests").document(request.id).update(
+                mapOf(
+                    "status" to "lobby_selected",
+                    "selectedCategory" to selectedCategory
+                )
+            ).await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun launchSessionFromDirectRequest(request: DirectGameRequest): String {
         val sessionId = createSession(
             user1Id = request.senderId,
             user1Name = request.senderNickname,
             user1Gender = request.senderGender,
             user2Id = request.receiverId,
-            user2Name = myNickname,
-            user2Gender = myGender,
-            category = selectedCategory
+            user2Name = request.receiverNickname,
+            user2Gender = request.receiverGender,
+            category = request.selectedCategory
         )
 
-        firestore.collection("direct_game_requests").document(request.id).update(
-            mapOf(
-                "status" to "accepted",
-                "selectedCategory" to selectedCategory,
-                "sessionId" to sessionId
-            )
-        ).await()
+        try {
+            firestore.collection("direct_game_requests").document(request.id).update(
+                mapOf(
+                    "status" to "playing",
+                    "sessionId" to sessionId
+                )
+            ).await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         return sessionId
     }
@@ -1339,6 +1372,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     override suspend fun rejectDirectGameRequest(requestId: String) {
         try {
             firestore.collection("direct_game_requests").document(requestId).update("status", "rejected").await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun cancelSentGameRequest(requestId: String) {
+        try {
+            firestore.collection("direct_game_requests").document(requestId).delete().await()
         } catch (e: Exception) {
             e.printStackTrace()
         }
