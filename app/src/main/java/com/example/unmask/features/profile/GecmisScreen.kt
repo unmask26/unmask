@@ -1,20 +1,14 @@
 package com.example.unmask.features.profile
 
-import com.example.unmask.features.ar.*
-import com.example.unmask.features.auth.*
-import com.example.unmask.features.game.*
-import com.example.unmask.features.lobby.*
-import com.example.unmask.features.online.*
-import com.example.unmask.features.profile.*
-
-
-import androidx.compose.animation.*
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -24,23 +18,70 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unmask.data.DataRepository
-import com.example.unmask.data.HistoryItem
+import com.example.unmask.data.DirectGameRequest
+import com.example.unmask.data.OnlineOpponentHistory
+import com.example.unmask.data.OnlineUserPresence
+import com.example.unmask.features.online.OnlineCategoryInfo
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+fun formatLastSeenTime(timestamp: Long): String {
+    if (timestamp <= 0L) return "Son görülme bilinmiyor"
+    val diffMs = System.currentTimeMillis() - timestamp
+    val diffSec = diffMs / 1000
+    val diffMin = diffSec / 60
+    val diffHour = diffMin / 60
+    val diffDay = diffHour / 24
+
+    return when {
+        diffMin < 1 -> "En son az önce online"
+        diffMin < 60 -> "En son ${diffMin}dk önce online"
+        diffHour < 24 -> "En son ${diffHour}saat önce online"
+        diffDay < 7 -> "En son ${diffDay}gün önce online"
+        else -> {
+            val sdf = SimpleDateFormat("dd MMM HH:mm", Locale("tr"))
+            "Son görülme: ${sdf.format(Date(timestamp))}"
+        }
+    }
+}
 
 @Composable
 fun GecmisScreen(
     repository: DataRepository,
     userId: String
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val history by repository.getHistory(userId).collectAsState(initial = emptyList())
-    var showDeleteConfirm by remember { mutableStateOf<HistoryItem?>(null) }
-    var editingNoteItem by remember { mutableStateOf<HistoryItem?>(null) }
-    var editedNoteText by remember { mutableStateOf("") }
+    val currentUserProfile by repository.currentUser.collectAsState(initial = null)
+
+    val onlineOpponents by repository.getOnlineHistoryOpponents(userId).collectAsState(initial = emptyList())
+    val allPresences by repository.getAllUserPresences().collectAsState(initial = emptyList())
+    val incomingRequests by repository.observeIncomingGameRequests(userId).collectAsState(initial = emptyList())
+
+    var selectedOpponentForRequest by remember { mutableStateOf<OnlineOpponentHistory?>(null) }
+    var selectedRequestForLobby by remember { mutableStateOf<DirectGameRequest?>(null) }
+    var isSendingRequest by remember { mutableStateOf(false) }
+
+    val categories = remember {
+        listOf(
+            OnlineCategoryInfo("İLİŞKİLER", "iliskiler", Color(0xFFEC4899), 0),
+            OnlineCategoryInfo("ADRENALİN", "adrenalin", Color(0xFFEAB308), 0),
+            OnlineCategoryInfo("BİLGİ", "bilgi", Color(0xFF3B82F6), 0),
+            OnlineCategoryInfo("AKTÜEL", "aktuel", Color(0xFF10B981), 0),
+            OnlineCategoryInfo("HATIRALAR", "hatiralar", Color(0xFF8B5CF6), 0),
+            OnlineCategoryInfo("FANTEZİLER", "fanteziler", Color(0xFFF97316), 0),
+            OnlineCategoryInfo("ADULT (+18)", "adult", Color(0xFFDC2626), 0),
+            OnlineCategoryInfo("SOFTHUB", "softhub", Color(0xFFF43F5E), 0)
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -55,145 +96,210 @@ fun GecmisScreen(
         ) {
             // Header
             Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "GEÇMİŞ",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black
-                )
-            }
-
-            if (history.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Column {
                     Text(
-                        text = "Henüz bir oyun geçmişiniz yok.",
-                        color = Color.Black.copy(alpha = 0.3f),
+                        text = "ONLINE GEÇMİŞ",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = "Son oynadığınız oyuncular ve oyun istekleri",
+                        fontSize = 12.sp,
+                        color = Color.Black.copy(alpha = 0.5f),
                         fontWeight = FontWeight.Medium
                     )
                 }
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    items(history) { item ->
-                        Column(
+            }
+
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // 📩 GELEN OYUN İSTEKLERİ KARTI
+                if (incomingRequests.isNotEmpty()) {
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(Color.White)
-                                .border(1.dp, Color.Black.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
-                                .padding(20.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                .border(2.dp, Color(0xFF8B5CF6), RoundedCornerShape(20.dp))
                         ) {
-                            // Title & Date
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Column {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .background(Color(0xFF8B5CF6), CircleShape)
+                                    )
                                     Text(
-                                        text = item.gameName,
+                                        text = "GELEN OYUN İSTEKLERİ (${incomingRequests.size})",
                                         fontWeight = FontWeight.Black,
-                                        fontSize = 18.sp,
+                                        fontSize = 14.sp,
                                         color = Color.Black
                                     )
+                                }
+
+                                incomingRequests.forEach { req ->
                                     Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color(0xFFF3E8FF))
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CalendarToday,
-                                            contentDescription = "Date",
-                                            tint = Color.Black.copy(alpha = 0.4f),
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Text(
-                                            text = item.date,
-                                            fontSize = 12.sp,
-                                            color = Color.Black.copy(alpha = 0.4f),
-                                            fontWeight = FontWeight.Medium
-                                        )
+                                        Column {
+                                            Text(
+                                                text = req.senderNickname.ifEmpty { "Oyuncu" },
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 15.sp,
+                                                color = Color.Black
+                                            )
+                                            Text(
+                                                text = "Size oyun isteği gönderdi",
+                                                fontSize = 11.sp,
+                                                color = Color.Black.copy(alpha = 0.6f)
+                                            )
+                                        }
+
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            IconButton(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        repository.rejectDirectGameRequest(req.id)
+                                                    }
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Reddet",
+                                                    tint = Color.Red
+                                                )
+                                            }
+
+                                            Button(
+                                                onClick = { selectedRequestForLobby = req },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                                shape = RoundedCornerShape(12.dp),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                            ) {
+                                                Text("LOBİ SEÇ", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                            }
+                                        }
                                     }
                                 }
                             }
+                        }
+                    }
+                }
 
-                            // Note Box
-                            Box(
+                // 👤 GEÇMİŞTE OYNANAN OYUNCULARIN LİSTESİ
+                if (onlineOpponents.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Henüz online oynadığınız bir oyuncu yok.",
+                                color = Color.Black.copy(alpha = 0.4f),
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                } else {
+                    items(onlineOpponents) { opp ->
+                        val presence = allPresences.find { it.userId == opp.opponentId }
+                        val isOnline = presence != null && (System.currentTimeMillis() - presence.lastActive < 30_000)
+
+                        val statusText = remember(presence, isOnline, opp.lastPlayedTimestamp) {
+                            if (isOnline) {
+                                val st = presence?.status ?: "idle"
+                                when {
+                                    st.startsWith("searching:") -> {
+                                        val catKey = st.substringAfter("searching:")
+                                        val catName = categories.find { it.key == catKey }?.name ?: catKey.uppercase()
+                                        "$catName Lobisinde"
+                                    }
+                                    st == "playing" -> "Oyunda"
+                                    else -> "Çevrimiçi"
+                                }
+                            } else {
+                                formatLastSeenTime(presence?.lastActive ?: opp.lastPlayedTimestamp)
+                            }
+                        }
+
+                        Card(
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedOpponentForRequest = opp }
+                                .border(1.dp, Color.Black.copy(alpha = 0.06f), RoundedCornerShape(20.dp))
+                        ) {
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFF9F9F9))
-                                    .border(1.dp, Color.Black.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        editingNoteItem = item
-                                        editedNoteText = item.note
-                                    }
-                                    .padding(12.dp)
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = if (item.note.isEmpty()) "📝 [Not eklemek için tıkla]" else "📝 ${item.note}",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (item.note.isEmpty()) Color.Black.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.7f)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Online indicator dot
+                                    Box(
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .background(
+                                                if (isOnline) Color(0xFF10B981) else Color(0xFFEF4444),
+                                                CircleShape
+                                            )
+                                    )
+
+                                    Column {
+                                        Text(
+                                            text = opp.opponentName,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 16.sp,
+                                            color = Color.Black
+                                        )
+                                        Text(
+                                            text = statusText,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isOnline) Color(0xFF10B981) else Color.Black.copy(alpha = 0.4f)
+                                        )
+                                    }
+                                }
+
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = "Oyun İsteği",
+                                    tint = Color.Black.copy(alpha = 0.3f)
                                 )
-                            }
-
-                            // Action Buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    modifier = Modifier.clickable {
-                                        editingNoteItem = item
-                                        editedNoteText = item.note
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit",
-                                        tint = Color.Black.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(
-                                        text = "DÜZENLE",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black.copy(alpha = 0.6f)
-                                    )
-                                }
-
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    modifier = Modifier.clickable {
-                                        showDeleteConfirm = item
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete",
-                                        tint = Color.Red.copy(alpha = 0.6f),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Text(
-                                        text = "SİL",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Red.copy(alpha = 0.6f)
-                                    )
-                                }
                             }
                         }
                     }
@@ -201,48 +307,93 @@ fun GecmisScreen(
             }
         }
 
-        // Delete Confirm Dialog
-        if (showDeleteConfirm != null) {
-            val item = showDeleteConfirm!!
+        // 🎯 NICKNAME'E BASILINCA ÇIKAN OYUN İSTEĞİ GÖNDER KARTI
+        if (selectedOpponentForRequest != null) {
+            val opp = selectedOpponentForRequest!!
+            val presence = allPresences.find { it.userId == opp.opponentId }
+            val isOnline = presence != null && (System.currentTimeMillis() - presence.lastActive < 30_000)
+
             AlertDialog(
-                onDismissRequest = { showDeleteConfirm = null },
+                onDismissRequest = { selectedOpponentForRequest = null },
                 title = {
-                    Text("EMİN MİSİNİZ?", fontWeight = FontWeight.Black, color = Color.Black)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(if (isOnline) Color(0xFF10B981) else Color(0xFFEF4444), CircleShape)
+                        )
+                        Text(
+                            text = opp.opponentName,
+                            fontWeight = FontWeight.Black,
+                            fontSize = 20.sp,
+                            color = Color.Black
+                        )
+                    }
                 },
                 text = {
-                    Text(
-                        text = "Bu oyun kaydı geçmişinizden silinecektir.",
-                        fontWeight = FontWeight.Medium,
-                        color = Color.Black.copy(alpha = 0.5f)
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (isOnline) "🟢 Şu an online" else "🔴 ${formatLastSeenTime(presence?.lastActive ?: opp.lastPlayedTimestamp)}",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isOnline) Color(0xFF10B981) else Color.Black.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = "Bu kullanıcıya oyun davet kartı gönderebilirsiniz. Başka bir oyunda olsa bile anlık bildirim ulaşacaktır.",
+                            fontSize = 12.sp,
+                            color = Color.Black.copy(alpha = 0.6f)
+                        )
+                    }
                 },
                 confirmButton = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                coroutineScope.launch {
-                                    repository.deleteHistoryItem(item.id)
-                                    showDeleteConfirm = null
+                    Button(
+                        onClick = {
+                            val myProfile = currentUserProfile ?: return@Button
+                            val myNickname = myProfile.nickname?.takeIf { it.isNotBlank() } ?: myProfile.displayName
+                            val myGender = myProfile.gender
+                            isSendingRequest = true
+                            coroutineScope.launch {
+                                try {
+                                    repository.sendDirectGameRequest(
+                                        senderId = userId,
+                                        senderNickname = myNickname,
+                                        senderGender = myGender,
+                                        receiverId = opp.opponentId,
+                                        receiverNickname = opp.opponentName
+                                    )
+                                    Toast.makeText(context, "Oyun isteği ${opp.opponentName} kullanıcısına gönderildi!", Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    Toast.makeText(context, "İstek gönderilemedi: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isSendingRequest = false
+                                    selectedOpponentForRequest = null
                                 }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red, contentColor = Color.White),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            Text("EVET, SİL", fontWeight = FontWeight.Black)
+                            }
+                        },
+                        enabled = !isSendingRequest,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        if (isSendingRequest) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                        } else {
+                            Text("OYUN İSTEĞİ GÖNDER 🚀", fontWeight = FontWeight.Black)
                         }
-
-                        TextButton(
-                            onClick = { showDeleteConfirm = null },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("VAZGEÇ", color = Color.Black.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
-                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { selectedOpponentForRequest = null },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("İPTAL", color = Color.Black.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
                     }
                 },
                 containerColor = Color.White,
@@ -250,58 +401,72 @@ fun GecmisScreen(
             )
         }
 
-        // Edit Note Dialog
-        if (editingNoteItem != null) {
-            val item = editingNoteItem!!
+        // 🎮 LOBİ SEÇ MODAL DIALOG
+        if (selectedRequestForLobby != null) {
+            val req = selectedRequestForLobby!!
             AlertDialog(
-                onDismissRequest = { editingNoteItem = null },
+                onDismissRequest = { selectedRequestForLobby = null },
                 title = {
-                    Text("NOT DÜZENLE", fontWeight = FontWeight.Black, color = Color.Black)
+                    Text("LOBİ SEÇİN", fontWeight = FontWeight.Black, fontSize = 20.sp, color = Color.Black)
                 },
                 text = {
-                    OutlinedTextField(
-                        value = editedNoteText,
-                        onValueChange = { editedNoteText = it },
-                        placeholder = { Text("Notunuzu buraya yazın...") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFFF5F5F5),
-                            unfocusedContainerColor = Color(0xFFF5F5F5),
-                            focusedBorderColor = Color.Black.copy(alpha = 0.2f),
-                            unfocusedBorderColor = Color.Black.copy(alpha = 0.05f)
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    )
-                },
-                confirmButton = {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                coroutineScope.launch {
-                                    repository.updateHistoryNote(item.id, editedNoteText)
-                                    editingNoteItem = null
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                        ) {
-                            Text("KAYDET", fontWeight = FontWeight.Black)
-                        }
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "${req.senderNickname} ile hangi lobide oynamak istersiniz?",
+                            fontSize = 13.sp,
+                            color = Color.Black.copy(alpha = 0.6f),
+                            fontWeight = FontWeight.Medium
+                        )
 
-                        TextButton(
-                            onClick = { editingNoteItem = null },
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("VAZGEÇ", color = Color.Black.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
+                            items(categories) { cat ->
+                                Card(
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = CardDefaults.cardColors(containerColor = cat.color),
+                                    modifier = Modifier
+                                        .size(90.dp)
+                                        .clickable {
+                                            coroutineScope.launch {
+                                                try {
+                                                    repository.acceptDirectGameRequest(req, cat.key)
+                                                    Toast.makeText(context, "${cat.name} lobisinde oyun başlatılıyor!", Toast.LENGTH_SHORT).show()
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                    Toast.makeText(context, "Oyun başlatılamadı: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                                } finally {
+                                                    selectedRequestForLobby = null
+                                                }
+                                            }
+                                        }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = cat.name,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 11.sp,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.padding(4.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(
+                        onClick = { selectedRequestForLobby = null },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("KAPAT", color = Color.Black.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
                     }
                 },
                 containerColor = Color.White,

@@ -140,3 +140,27 @@ data class PublicVideo(
     val likedBy: List<String> = emptyList(),
     val comments: List<Comment> = emptyList()
 )
+
+@Serializable
+data class DirectGameRequest(
+    val id: String = "",
+    val senderId: String = "",
+    val senderNickname: String = "",
+    val senderGender: String = "Erkek",
+    val receiverId: String = "",
+    val receiverNickname: String = "",
+    val selectedCategory: String = "",
+    val status: String = "pending", // "pending", "accepted", "rejected"
+    val createdAt: Long = 0L,
+    val sessionId: String = ""
+)
+
+@Serializable
+data class OnlineOpponentHistory(
+    val opponentId: String = "",
+    val opponentName: String = "",
+    val opponentGender: String = "Erkek",
+    val lastPlayedTimestamp: Long = 0L,
+    val lastCategory: String = ""
+)
+

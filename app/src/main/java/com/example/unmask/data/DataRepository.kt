@@ -86,6 +86,12 @@ interface DataRepository {
     suspend fun cleanExpiredPublicVideos()
     suspend fun toggleLikePublicVideo(videoId: String): Boolean
     suspend fun addCommentToPublicVideo(videoId: String, commentText: String)
+    fun getOnlineHistoryOpponents(userId: String): Flow<List<OnlineOpponentHistory>>
+    fun getAllUserPresences(): Flow<List<OnlineUserPresence>>
+    suspend fun sendDirectGameRequest(senderId: String, senderNickname: String, senderGender: String, receiverId: String, receiverNickname: String): String
+    fun observeIncomingGameRequests(userId: String): Flow<List<DirectGameRequest>>
+    suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String): String
+    suspend fun rejectDirectGameRequest(requestId: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -1202,4 +1208,140 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             null
         }.await()
     }
+
+    override fun getOnlineHistoryOpponents(userId: String): Flow<List<OnlineOpponentHistory>> = callbackFlow {
+        if (userId == "offline_demo_user") {
+            trySend(listOf(
+                OnlineOpponentHistory(
+                    opponentId = "demo_opp_1",
+                    opponentName = "Ahmet",
+                    opponentGender = "Erkek",
+                    lastPlayedTimestamp = System.currentTimeMillis() - 300_000,
+                    lastCategory = "iliskiler"
+                )
+            ))
+            awaitClose { }
+        } else {
+            val listener = firestore.collection("online_sessions")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+                    val sessions = snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(OnlineSession::class.java)
+                    }.filter { it.user1Id == userId || it.user2Id == userId }
+
+                    val grouped = sessions.groupBy { session ->
+                        if (session.user1Id == userId) session.user2Id else session.user1Id
+                    }
+
+                    val opponents = grouped.mapNotNull { (oppId, oppSessions) ->
+                        if (oppId.isEmpty()) return@mapNotNull null
+                        val latestSession = oppSessions.maxByOrNull { it.lastHeartbeat } ?: return@mapNotNull null
+                        val isUser1 = latestSession.user1Id == userId
+                        val oppName = if (isUser1) latestSession.user2Name else latestSession.user1Name
+                        val oppGender = if (isUser1) latestSession.user2Gender else latestSession.user1Gender
+                        OnlineOpponentHistory(
+                            opponentId = oppId,
+                            opponentName = oppName.ifEmpty { "Oyuncu" },
+                            opponentGender = oppGender,
+                            lastPlayedTimestamp = latestSession.lastHeartbeat,
+                            lastCategory = latestSession.commonCategory
+                        )
+                    }.sortedByDescending { it.lastPlayedTimestamp }
+
+                    trySend(opponents)
+                }
+            awaitClose { listener.remove() }
+        }
+    }
+
+    override fun getAllUserPresences(): Flow<List<OnlineUserPresence>> = callbackFlow {
+        val listener = firestore.collection("online_users")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val presences = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(OnlineUserPresence::class.java)
+                }
+                trySend(presences)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun sendDirectGameRequest(
+        senderId: String,
+        senderNickname: String,
+        senderGender: String,
+        receiverId: String,
+        receiverNickname: String
+    ): String {
+        val requestId = "req-" + UUID.randomUUID().toString()
+        val request = DirectGameRequest(
+            id = requestId,
+            senderId = senderId,
+            senderNickname = senderNickname,
+            senderGender = senderGender,
+            receiverId = receiverId,
+            receiverNickname = receiverNickname,
+            status = "pending",
+            createdAt = System.currentTimeMillis()
+        )
+        firestore.collection("direct_game_requests").document(requestId).set(request).await()
+        return requestId
+    }
+
+    override fun observeIncomingGameRequests(userId: String): Flow<List<DirectGameRequest>> = callbackFlow {
+        val listener = firestore.collection("direct_game_requests")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val requests = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(DirectGameRequest::class.java)
+                }.filter { it.receiverId == userId && it.status == "pending" }
+                 .sortedByDescending { it.createdAt }
+                trySend(requests)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    override suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String): String {
+        val userProfile = _currentUser.value
+        val myNickname = userProfile?.nickname?.takeIf { it.isNotBlank() } ?: userProfile?.displayName ?: "Oyuncu"
+        val myGender = userProfile?.gender ?: "Erkek"
+
+        val sessionId = createSession(
+            user1Id = request.senderId,
+            user1Name = request.senderNickname,
+            user1Gender = request.senderGender,
+            user2Id = request.receiverId,
+            user2Name = myNickname,
+            user2Gender = myGender,
+            category = selectedCategory
+        )
+
+        firestore.collection("direct_game_requests").document(request.id).update(
+            mapOf(
+                "status" to "accepted",
+                "selectedCategory" to selectedCategory,
+                "sessionId" to sessionId
+            )
+        ).await()
+
+        return sessionId
+    }
+
+    override suspend fun rejectDirectGameRequest(requestId: String) {
+        try {
+            firestore.collection("direct_game_requests").document(requestId).update("status", "rejected").await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }
+

@@ -72,6 +72,36 @@ fun MainAppScreen(
         activeGame = null
     }
 
+    val userId = currentUser?.uid
+    val incomingRequests by remember(userId) {
+        if (userId != null) repository.observeIncomingGameRequests(userId) else kotlinx.coroutines.flow.flowOf(emptyList())
+    }.collectAsState(initial = emptyList())
+
+    val activeSession by remember(userId) {
+        if (userId != null) repository.observeActiveSession(userId) else kotlinx.coroutines.flow.flowOf(null)
+    }.collectAsState(initial = null)
+
+    var activeToastRequest by remember { mutableStateOf<com.example.unmask.data.DirectGameRequest?>(null) }
+    var lastHandledRequestId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(incomingRequests) {
+        val latest = incomingRequests.firstOrNull()
+        if (latest != null && latest.id != lastHandledRequestId && latest.status == "pending") {
+            lastHandledRequestId = latest.id
+            activeToastRequest = latest
+            kotlinx.coroutines.delay(3000L)
+            if (activeToastRequest?.id == latest.id) {
+                activeToastRequest = null
+            }
+        }
+    }
+
+    LaunchedEffect(activeSession) {
+        if (activeSession != null) {
+            activeTab = "oyun"
+        }
+    }
+
     if (currentUser == null) {
         Box(
             modifier = Modifier
@@ -234,6 +264,62 @@ fun MainAppScreen(
                             activeTab = "oyun"
                         }
                     )
+                }
+
+                // 🔔 3 Saniye Sonra Otomatik Kapanan Oyun İsteği Popup Bildirimi
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = activeToastRequest != null,
+                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(),
+                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(16.dp)
+                ) {
+                    val req = activeToastRequest
+                    if (req != null) {
+                        Card(
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF8B5CF6)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            modifier = Modifier
+                                .fillMaxWidth(0.95f)
+                                .clickable {
+                                    activeTab = "gecmis"
+                                    activeToastRequest = null
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Gamepad,
+                                        contentDescription = "Game Request",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "YENİ OYUN İSTEĞİ! 🎮",
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 13.sp,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = "${req.senderNickname} size oyun isteği gönderdi. (Tıkla ve Geçmiş'e git)",
+                                            fontSize = 11.sp,
+                                            color = Color.White.copy(alpha = 0.9f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
