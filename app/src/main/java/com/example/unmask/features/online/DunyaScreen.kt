@@ -1022,6 +1022,11 @@ fun OnlineGameplayView(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    val currentUserState by repository.currentUser.collectAsState(initial = null)
+    val userNickname = remember(currentUserState) {
+        currentUserState?.nickname?.takeIf { it.isNotBlank() } ?: currentUserState?.displayName ?: "Oyuncu"
+    }
+
     val isMyTurn = session.currentTurn == userId
     val activeGame = remember(session.selectedGameId, session.commonCategory, customGames) {
         (Constants.GAMES + customGames).find { it.id == session.selectedGameId } ?: if (session.commonCategory.isNotEmpty()) {
@@ -1043,6 +1048,72 @@ fun OnlineGameplayView(
     var isUploading by remember { mutableStateOf(false) }
     var isPublishedToWorld by remember { mutableStateOf(false) }
     var isPublishingToWorld by remember { mutableStateOf(false) }
+
+    val isRequester = session.replayRequesterId == userId
+    val isOpponentRequesting = session.replayRequestStatus == "requested" && !isRequester
+
+    if (isOpponentRequesting) {
+        AlertDialog(
+            onDismissRequest = {
+                coroutineScope.launch {
+                    repository.updateSession(session.copy(replayRequestStatus = "rejected"))
+                }
+            },
+            title = {
+                Text(text = "Tekrar Oyun İsteği", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(
+                    text = "${session.replayRequesterName} size tekrar oyun isteği gönderdi.",
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            val isMatchmaking = session.commonCategory.isNotEmpty()
+                            val nextStatus = if (isMatchmaking) "playing" else "game_selection"
+                            repository.updateSession(
+                                session.copy(
+                                    status = nextStatus,
+                                    user1TaskCount = 0,
+                                    user2TaskCount = 0,
+                                    activeCardCode = "",
+                                    activeTaskId = "",
+                                    activeTaskText = "",
+                                    videoUrl = "",
+                                    downloadRequestStatus = "none",
+                                    usedTaskIds = emptyList(),
+                                    usedTaskTexts = emptyList(),
+                                    replayRequestStatus = "none",
+                                    replayRequesterId = "",
+                                    replayRequesterName = "",
+                                    currentTurn = session.user2Id,
+                                    lastHeartbeat = System.currentTimeMillis()
+                                )
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Text("KABUL ET", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            repository.updateSession(session.copy(replayRequestStatus = "rejected"))
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("REDDET", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
 
     LaunchedEffect(recordedUri) {
         if (recordedUri == null) {
@@ -2101,6 +2172,36 @@ fun OnlineGameplayView(
                                         Text("TEKRAR İZLE", fontWeight = FontWeight.Black, color = Color.White)
                                     }
 
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // TEKRAR OYNA İsteği Butonu
+                                    if (session.replayRequestStatus == "requested" && isRequester) {
+                                        Text("Tekrar oyun isteği gönderildi. Yanıt bekleniyor...", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color(0xFF8B5CF6))
+                                    } else if (session.replayRequestStatus == "rejected" && isRequester) {
+                                        Text("Tekrar oyun isteği reddedildi.", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Red)
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    repository.updateSession(
+                                                        session.copy(
+                                                            replayRequestStatus = "requested",
+                                                            replayRequesterId = userId,
+                                                            replayRequesterName = userNickname
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                            shape = RoundedCornerShape(16.dp),
+                                            modifier = Modifier.height(56.dp).fillMaxWidth(0.6f)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Replay", tint = Color.White)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("TEKRAR OYNA", fontWeight = FontWeight.Black)
+                                        }
+                                    }
+
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     val totalTasksDone = session.user1TaskCount + session.user2TaskCount
@@ -2359,6 +2460,43 @@ fun OnlineGameplayView(
                                         color = Color.Black.copy(alpha = 0.4f),
                                         textAlign = TextAlign.Center
                                     )
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    if (session.replayRequestStatus == "requested" && isRequester) {
+                                        Text(
+                                            text = "Tekrar oyun isteği gönderildi. Yanıt bekleniyor...",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF8B5CF6)
+                                        )
+                                    } else if (session.replayRequestStatus == "rejected" && isRequester) {
+                                        Text(
+                                            text = "Tekrar oyun isteği reddedildi.",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.Red
+                                        )
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    repository.updateSession(
+                                                        session.copy(
+                                                            replayRequestStatus = "requested",
+                                                            replayRequesterId = userId,
+                                                            replayRequesterName = userNickname
+                                                        )
+                                                    )
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                            shape = RoundedCornerShape(16.dp)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Replay", tint = Color.White)
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text("TEKRAR OYNA", fontWeight = FontWeight.Black)
+                                        }
+                                    }
                                 }
                             }
 
