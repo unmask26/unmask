@@ -1636,6 +1636,21 @@ fun OnlineGameplayView(
                                                 coroutineScope.launch {
                                                     try {
                                                         val uriSnapshot = recordedUri ?: return@launch
+                                                        
+                                                        // 🛡️ Cihaz içi NSFW (Müstehcen İçerik) Taraması
+                                                        val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, uriSnapshot)
+                                                        if (nsfwResult.isNSFW) {
+                                                            withContext(Dispatchers.Main) {
+                                                                Toast.makeText(
+                                                                    context,
+                                                                    "⚠️ UYARI: Videonuz topluluk kurallarına aykırı (NSFW) içerik barındırdığı için engellendi!",
+                                                                    Toast.LENGTH_LONG
+                                                                ).show()
+                                                            }
+                                                            isUploading = false
+                                                            return@launch
+                                                        }
+
                                                         val url = repository.uploadOnlineVideo(session.id, uriSnapshot)
                                                         val newUser1Count = if (session.user1Id == userId) session.user1TaskCount + 1 else session.user1TaskCount
                                                         val newUser2Count = if (session.user2Id == userId) session.user2TaskCount + 1 else session.user2TaskCount

@@ -1,0 +1,1172 @@
+diff --git a/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt b/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt
+index e4fc50e..f89e2b2 100644
+--- a/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt
++++ b/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt
+@@ -915,6 +915,7 @@ fun OnlineGameplayView(
+ 
+     var recordedUri by remember { mutableStateOf<Uri?>(null) }
+     var isUploading by remember { mutableStateOf(false) }
++    var isPublishingToWorld by remember { mutableStateOf(false) }
+ 
+     var showCamera by remember { mutableStateOf(false) }
+     var isRecording by remember { mutableStateOf(false) }
+@@ -988,14 +989,15 @@ fun OnlineGameplayView(
+                             val firstFace = landmarks[0]
+                             val rot = latestRotation.get()
+                             val keypoints = firstFace.map { landmark ->
+-                                val xVal = landmark.x()
+-                                val yVal = landmark.y()
+-                                when (rot) {
+-                                    90 -> Keypoint(yVal, 1f - xVal)
+-                                    180 -> Keypoint(1f - xVal, 1f - yVal)
+-                                    270 -> Keypoint(1f - yVal, xVal)
+-                                    else -> Keypoint(xVal, yVal)
++                                val rx = landmark.x()
++                                val ry = landmark.y()
++                                val (xs, ys) = when (rot) {
++                                    90 -> Pair(ry, 1f - rx)
++                                    180 -> Pair(1f - rx, 1f - ry)
++                                    270 -> Pair(1f - ry, rx)
++                                    else -> Pair(rx, ry)
+                                 }
++                                Keypoint(xs, ys)
+                             }
+                             latestFaceData.set(FaceData(
+                                 landmarks = keypoints,
+@@ -1032,14 +1034,15 @@ fun OnlineGameplayView(
+                                 val firstFace = landmarks[0]
+                                 val rot = latestRotation.get()
+                                 val keypoints = firstFace.map { landmark ->
+-                                    val xVal = landmark.x()
+-                                    val yVal = landmark.y()
+-                                    when (rot) {
+-                                        90 -> Keypoint(yVal, 1f - xVal)
+-                                        180 -> Keypoint(1f - xVal, 1f - yVal)
+-                                        270 -> Keypoint(1f - yVal, xVal)
+-                                        else -> Keypoint(xVal, yVal)
++                                    val rx = landmark.x()
++                                    val ry = landmark.y()
++                                    val (xs, ys) = when (rot) {
++                                        90 -> Pair(ry, 1f - rx)
++                                        180 -> Pair(1f - rx, 1f - ry)
++                                        270 -> Pair(1f - ry, rx)
++                                        else -> Pair(rx, ry)
+                                     }
++                                    Keypoint(xs, ys)
+                                 }
+                                 latestFaceData.set(FaceData(
+                                     landmarks = keypoints,
+@@ -1276,212 +1279,272 @@ fun OnlineGameplayView(
+                                                 mainHandler,
+                                                 errorConsumer
+                                             )
+-
+                                             overlayEffect.setOnDrawListener { frame: androidx.camera.effects.Frame ->
+                                                 val canvas = frame.overlayCanvas
+                                                 canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR)
+-
+-                                                val filter = activeFilter
+                                                 val face = latestFaceData.get()
++                                                val filter = activeFilter
+ 
+                                                 if (face != null && filter != "none" && face.landmarks.isNotEmpty()) {
+                                                     val savedCount = canvas.save()
+-                                                    canvas.concat(frame.sensorToBufferTransform)
+-
++                                                    
+                                                     val landmarks = face.landmarks
+-                                                    val imgW = face.imageWidth.toFloat()
+-                                                    val imgH = face.imageHeight.toFloat()
++                                                    val matrix = frame.sensorToBufferTransform
++                                                    val pts = FloatArray(landmarks.size * 2)
++                                                    for (i in landmarks.indices) {
++                                                        pts[i * 2] = landmarks[i].x * face.imageWidth
++                                                        pts[i * 2 + 1] = landmarks[i].y * face.imageHeight
++                                                    }
++                                                    matrix.mapPoints(pts)
++                                                    
++                                                    fun getX(idx: Int) = pts[idx * 2]
++                                                    fun getY(idx: Int) = pts[idx * 2 + 1]
+ 
+-                                                    fun getX(idx: Int) = landmarks[idx].x * imgW
+-                                                    fun getY(idx: Int) = landmarks[idx].y * imgH
++                                                    val maskPath = Path()
++                                                    var mainColor = "#FFFFFF"
++                                                    var borderColor = "#000000"
+ 
+                                                     val lex = getX(33)
+                                                     val ley = getY(33)
+                                                     val rex = getX(263)
+                                                     val rey = getY(263)
+ 
+-                                                    val dX = rex - lex
+-                                                    val dY = rey - ley
++                                                    val lx = getX(234)
++                                                    val ly = getY(234)
++                                                    val rx = getX(454)
++                                                    val ry = getY(454)
++
++                                                    val dX = rx - lx
++                                                    val dY = ry - ly
+                                                     val rollAngle = Math.toDegrees(Math.atan2(dY.toDouble(), dX.toDouble())).toFloat()
+ 
+                                                     val eyeMidX = (lex + rex) / 2f
+                                                     val eyeMidY = (ley + rey) / 2f
+-
+-                                                    canvas.rotate(rollAngle, eyeMidX, eyeMidY)
+-
+                                                     val eyeDistance = Math.hypot((rex - lex).toDouble(), (rey - ley).toDouble()).toFloat()
+-                                                    val faceW = eyeDistance * 2.2f
+-                                                    val faceH = eyeDistance * 2.2f
+ 
+                                                     when (filter) {
+-                                                        "gozluk" -> {
+-                                                            val glassPaint = Paint().apply {
+-                                                                color = android.graphics.Color.argb(220, 20, 20, 20)
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val highlightPaint = Paint().apply {
+-                                                                color = android.graphics.Color.argb(128, 255, 255, 255)
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val bridgePaint = Paint().apply {
+-                                                                color = android.graphics.Color.BLACK
+-                                                                style = Paint.Style.STROKE
+-                                                                strokeWidth = faceW * 0.04f
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val lensW = eyeDistance * 0.7f
+-                                                            val lensH = eyeDistance * 0.5f
+-                                                            val spacing = eyeDistance * 0.2f
+-                                                            val eyeY = eyeMidY
+-                                                            canvas.drawRoundRect(eyeMidX - spacing/2 - lensW, eyeY - lensH/2, eyeMidX - spacing/2, eyeY + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+-                                                            canvas.drawCircle(eyeMidX - spacing/2 - lensW*0.7f, eyeY - lensH*0.2f, lensW*0.08f, highlightPaint)
+-                                                            canvas.drawRoundRect(eyeMidX + spacing/2, eyeY - lensH/2, eyeMidX + spacing/2 + lensW, eyeY + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+-                                                            canvas.drawCircle(eyeMidX + spacing/2 + lensW*0.3f, eyeY - lensH*0.2f, lensW*0.08f, highlightPaint)
+-                                                            canvas.drawLine(eyeMidX - spacing/2, eyeY, eyeMidX + spacing/2, eyeY, bridgePaint)
++                                                        "fem_kedi" -> {
++                                                            mainColor = "#D81B60"
++                                                            borderColor = "#FFD700"
++                                                            maskPath.moveTo(0f, eyeDistance * 0.15f)
++                                                            maskPath.cubicTo(-eyeDistance * 0.6f, eyeDistance * 0.45f,
++                                                                             -eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                             -eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                            maskPath.cubicTo(-eyeDistance * 1.1f, -eyeDistance * 0.55f,
++                                                                             -eyeDistance * 0.5f, -eyeDistance * 0.2f,
++                                                                             0f, -eyeDistance * 0.1f)
++                                                            maskPath.cubicTo(eyeDistance * 0.5f, -eyeDistance * 0.2f,
++                                                                             eyeDistance * 1.1f, -eyeDistance * 0.55f,
++                                                                             eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                            maskPath.cubicTo(eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                             eyeDistance * 0.6f, eyeDistance * 0.45f,
++                                                                             0f, eyeDistance * 0.15f)
++                                                            maskPath.close()
+                                                         }
+-                                                        "biyik" -> {
+-                                                            val mustachePaint = Paint().apply {
+-                                                                color = android.graphics.Color.BLACK
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val mx = getX(164)
+-                                                            val my = getY(164)
+-                                                            val mw = eyeDistance * 0.8f
+-                                                            val mh = eyeDistance * 0.22f
+-                                                            val leftPath = Path().apply {
+-                                                                moveTo(mx, my)
+-                                                                cubicTo(mx - mw*0.3f, my - mh*0.3f, mx - mw*0.7f, my - mh*0.5f, mx - mw, my + mh*0.2f)
+-                                                                cubicTo(mx - mw*0.6f, my + mh*0.8f, mx - mw*0.2f, my + mh*0.4f, mx, my + mh*0.1f)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(leftPath, mustachePaint)
+-                                                            val rightPath = Path().apply {
+-                                                                moveTo(mx, my)
+-                                                                cubicTo(mx + mw*0.3f, my - mh*0.3f, mx + mw*0.7f, my - mh*0.5f, mx + mw, my + mh*0.2f)
+-                                                                cubicTo(mx + mw*0.6f, my + mh*0.8f, mx + mw*0.2f, my + mh*0.4f, mx, my + mh*0.1f)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(rightPath, mustachePaint)
++                                                        "fem_kelebek" -> {
++                                                            mainColor = "#8E24AA"
++                                                            borderColor = "#E040FB"
++                                                            maskPath.moveTo(0f, eyeDistance * 0.1f)
++                                                            maskPath.cubicTo(-eyeDistance * 0.5f, -eyeDistance * 0.1f,
++                                                                             -eyeDistance * 1.1f, -eyeDistance * 0.8f,
++                                                                             -eyeDistance * 1.4f, -eyeDistance * 0.7f)
++                                                            maskPath.cubicTo(-eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                             -eyeDistance * 1.4f, eyeDistance * 0.8f,
++                                                                             -eyeDistance * 0.7f, eyeDistance * 0.7f)
++                                                            maskPath.lineTo(0f, eyeDistance * 0.2f)
++                                                            maskPath.lineTo(eyeDistance * 0.7f, eyeDistance * 0.7f)
++                                                            maskPath.cubicTo(eyeDistance * 1.4f, eyeDistance * 0.8f,
++                                                                             eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                             eyeDistance * 1.4f, -eyeDistance * 0.7f)
++                                                            maskPath.cubicTo(eyeDistance * 1.1f, -eyeDistance * 0.8f,
++                                                                             eyeDistance * 0.5f, -eyeDistance * 0.1f,
++                                                                             0f, eyeDistance * 0.1f)
++                                                            maskPath.close()
+                                                         }
+-                                                        "tac" -> {
+-                                                            val crownPaint = Paint().apply {
+-                                                                color = android.graphics.Color.rgb(253, 224, 71)
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val jewelPaint = Paint().apply {
+-                                                                color = android.graphics.Color.rgb(239, 68, 68)
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val cx_crown = getX(10)
+-                                                            val cy_crown = getY(10) - eyeDistance * 0.35f
+-                                                            val cw = eyeDistance * 1.5f
+-                                                            val ch = eyeDistance * 0.9f
+-                                                            val crownPath = Path().apply {
+-                                                                moveTo(cx_crown - cw/2, cy_crown)
+-                                                                lineTo(cx_crown - cw/2, cy_crown - ch*0.6f)
+-                                                                lineTo(cx_crown - cw*0.25f, cy_crown - ch*0.3f)
+-                                                                lineTo(cx_crown, cy_crown - ch)
+-                                                                lineTo(cx_crown + cw*0.25f, cy_crown - ch*0.3f)
+-                                                                lineTo(cx_crown + cw/2, cy_crown - ch*0.6f)
+-                                                                lineTo(cx_crown + cw/2, cy_crown)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(crownPath, crownPaint)
+-                                                            canvas.drawCircle(cx_crown, cy_crown - ch*0.85f, cw*0.06f, jewelPaint)
+-                                                            canvas.drawCircle(cx_crown - cw/2, cy_crown - ch*0.55f, cw*0.04f, jewelPaint)
+-                                                            canvas.drawCircle(cx_crown + cw/2, cy_crown - ch*0.55f, cw*0.04f, jewelPaint)
++                                                        "fem_altin" -> {
++                                                            mainColor = "#FFD700"
++                                                            borderColor = "#B8860B"
++                                                            maskPath.moveTo(0f, eyeDistance * 0.2f)
++                                                            maskPath.cubicTo(-eyeDistance * 0.7f, eyeDistance * 0.5f,
++                                                                             -eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                             -eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                            maskPath.cubicTo(-eyeDistance * 1.1f, -eyeDistance * 0.7f,
++                                                                             -eyeDistance * 0.4f, -eyeDistance * 0.3f,
++                                                                             0f, -eyeDistance * 0.2f)
++                                                            maskPath.cubicTo(eyeDistance * 0.4f, -eyeDistance * 0.3f,
++                                                                             eyeDistance * 1.1f, -eyeDistance * 0.7f,
++                                                                             eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                            maskPath.cubicTo(eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                             eyeDistance * 0.7f, eyeDistance * 0.5f,
++                                                                             0f, eyeDistance * 0.2f)
++                                                            maskPath.close()
+                                                         }
+-                                                        "sakal" -> {
+-                                                            val beardPaint = Paint().apply {
+-                                                                color = android.graphics.Color.rgb(40, 30, 20)
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val beardPath = Path().apply {
+-                                                                val bx = getX(164)
+-                                                                val by = getY(164) + eyeDistance * 0.1f
+-                                                                val bw = Math.hypot((getX(454) - getX(234)).toDouble(), (getY(454) - getY(234)).toDouble()).toFloat() * 0.5f
+-                                                                val bh = eyeDistance * 1.0f
+-                                                                moveTo(bx - bw, by)
+-                                                                cubicTo(bx - bw, by + bh*0.5f, bx - bw*0.6f, by + bh, bx, by + bh)
+-                                                                cubicTo(bx + bw*0.6f, by + bh, bx + bw, by + bh*0.5f, bx + bw, by)
+-                                                                lineTo(bx + bw*0.6f, by)
+-                                                                cubicTo(bx + bw*0.4f, by + bh*0.2f, bx + bw*0.2f, by + bh*0.3f, bx, by + bh*0.3f)
+-                                                                cubicTo(bx - bw*0.2f, by + bh*0.3f, bx - bw*0.4f, by + bh*0.2f, bx - bw*0.6f, by)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(beardPath, beardPaint)
++                                                        "fem_kralice" -> {
++                                                            mainColor = "#C62828"
++                                                            borderColor = "#FFD700"
++                                                            maskPath.moveTo(0f, eyeDistance * 0.15f)
++                                                            maskPath.cubicTo(-eyeDistance * 0.7f, eyeDistance * 0.4f,
++                                                                             -eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                             -eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                            maskPath.lineTo(-eyeDistance * 1.0f, -eyeDistance * 0.1f)
++                                                            maskPath.lineTo(-eyeDistance * 0.7f, -eyeDistance * 0.6f)
++                                                            maskPath.lineTo(-eyeDistance * 0.4f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(0f, -eyeDistance * 0.8f)
++                                                            maskPath.lineTo(eyeDistance * 0.4f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(eyeDistance * 0.7f, -eyeDistance * 0.6f)
++                                                            maskPath.lineTo(eyeDistance * 1.0f, -eyeDistance * 0.1f)
++                                                            maskPath.lineTo(eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                            maskPath.cubicTo(eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                             eyeDistance * 0.7f, eyeDistance * 0.4f,
++                                                                             0f, eyeDistance * 0.15f)
++                                                            maskPath.close()
+                                                         }
+-                                                        "kulak" -> {
+-                                                            val earOuterPaint = Paint().apply {
+-                                                                color = android.graphics.Color.rgb(244, 63, 94)
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val earInnerPaint = Paint().apply {
+-                                                                color = android.graphics.Color.rgb(254, 205, 211)
+-                                                                style = Paint.Style.FILL
+-                                                                isAntiAlias = true
+-                                                            }
+-                                                            val earW = eyeDistance * 0.45f
+-                                                            val earH = eyeDistance * 0.45f
+-                                                            val earSpacing = eyeDistance * 0.55f
+-                                                            val earY = getY(10) - eyeDistance * 0.3f
+-                                                            val leftEarPath = Path().apply {
+-                                                                moveTo(eyeMidX - earSpacing - earW/2, earY)
+-                                                                lineTo(eyeMidX - earSpacing, earY - earH)
+-                                                                lineTo(eyeMidX - earSpacing + earW/2, earY)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(leftEarPath, earOuterPaint)
+-                                                            val leftInnerPath = Path().apply {
+-                                                                moveTo(eyeMidX - earSpacing - earW*0.3f, earY)
+-                                                                lineTo(eyeMidX - earSpacing, earY - earH*0.7f)
+-                                                                lineTo(eyeMidX - earSpacing + earW*0.3f, earY)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(leftInnerPath, earInnerPaint)
+-                                                            val rightEarPath = Path().apply {
+-                                                                moveTo(eyeMidX + earSpacing - earW/2, earY)
+-                                                                lineTo(eyeMidX + earSpacing, earY - earH)
+-                                                                lineTo(eyeMidX + earSpacing + earW/2, earY)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(rightEarPath, earOuterPaint)
+-                                                            val rightInnerPath = Path().apply {
+-                                                                moveTo(eyeMidX + earSpacing - earW*0.3f, earY)
+-                                                                lineTo(eyeMidX + earSpacing, earY - earH*0.7f)
+-                                                                lineTo(eyeMidX + earSpacing + earW*0.3f, earY)
+-                                                                close()
+-                                                            }
+-                                                            canvas.drawPath(rightInnerPath, earInnerPaint)
++                                                        "fem_kugu" -> {
++                                                            mainColor = "#E0F7FA"
++                                                            borderColor = "#00ACC1"
++                                                            maskPath.moveTo(0f, eyeDistance * 0.1f)
++                                                            maskPath.cubicTo(-eyeDistance * 0.6f, eyeDistance * 0.35f,
++                                                                             -eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                             -eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                            maskPath.lineTo(-eyeDistance * 1.1f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(-eyeDistance * 0.9f, -eyeDistance * 0.5f)
++                                                            maskPath.lineTo(-eyeDistance * 0.6f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(0f, -eyeDistance * 0.3f)
++                                                            maskPath.lineTo(eyeDistance * 0.6f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(eyeDistance * 0.9f, -eyeDistance * 0.5f)
++                                                            maskPath.lineTo(eyeDistance * 1.1f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                            maskPath.cubicTo(eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                             eyeDistance * 0.6f, eyeDistance * 0.35f,
++                                                                             0f, eyeDistance * 0.1f)
++                                                            maskPath.close()
+                                                         }
+-                                                        "sincap", "kurt" -> {
+-                                                            val bitmap = when (filter) {
+-                                                                "sincap" -> if (isTalking) sincapAcik else sincapKapali
+-                                                                "kurt"   -> if (isTalking) kurtAcik   else kurtKapali
+-                                                                else     -> null
+-                                                            }
+-                                                            if (bitmap != null) {
+-                                                                val animalPaint = Paint().apply {
+-                                                                    isAntiAlias = true
+-                                                                    alpha = 178
+-                                                                }
+-                                                                val size = eyeDistance * 3.3f
+-                                                                val left = getX(1) - size / 2f
+-                                                                val top = getY(1) - size / 2f - eyeDistance * 0.2f
+-                                                                val right = getX(1) + size / 2f
+-                                                                val bottom = getY(1) + size / 2f - eyeDistance * 0.2f
+-                                                                val dst = android.graphics.RectF(left, top, right, bottom)
+-                                                                canvas.drawBitmap(bitmap, null, dst, animalPaint)
+-                                                            }
++                                                        "mask_yarasa" -> {
++                                                            mainColor = "#212121"
++                                                            borderColor = "#424242"
++                                                            maskPath.moveTo(0f, -eyeDistance * 0.1f)
++                                                            maskPath.lineTo(-eyeDistance * 0.5f, -eyeDistance * 0.3f)
++                                                            maskPath.lineTo(-eyeDistance * 1.2f, -eyeDistance * 0.8f)
++                                                            maskPath.lineTo(-eyeDistance * 1.0f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(-eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                            maskPath.cubicTo(-eyeDistance * 0.9f, eyeDistance * 0.45f,
++                                                                             -eyeDistance * 0.5f, eyeDistance * 0.3f,
++                                                                             0f, eyeDistance * 0.25f)
++                                                            maskPath.cubicTo(eyeDistance * 0.5f, eyeDistance * 0.3f,
++                                                                             eyeDistance * 0.9f, eyeDistance * 0.45f,
++                                                                             eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                            maskPath.lineTo(eyeDistance * 1.0f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(eyeDistance * 1.2f, -eyeDistance * 0.8f)
++                                                            maskPath.lineTo(eyeDistance * 0.5f, -eyeDistance * 0.3f)
++                                                            maskPath.close()
++                                                        }
++                                                        "mask_gladyator" -> {
++                                                            mainColor = "#78909C"
++                                                            borderColor = "#37474F"
++                                                            maskPath.moveTo(0f, -eyeDistance * 0.4f)
++                                                            maskPath.lineTo(-eyeDistance * 1.2f, -eyeDistance * 0.4f)
++                                                            maskPath.lineTo(-eyeDistance * 1.2f, eyeDistance * 0.1f)
++                                                            maskPath.lineTo(-eyeDistance * 0.6f, eyeDistance * 0.5f)
++                                                            maskPath.lineTo(0f, eyeDistance * 0.1f)
++                                                            maskPath.lineTo(eyeDistance * 0.6f, eyeDistance * 0.5f)
++                                                            maskPath.lineTo(eyeDistance * 1.2f, eyeDistance * 0.1f)
++                                                            maskPath.lineTo(eyeDistance * 1.2f, -eyeDistance * 0.4f)
++                                                            maskPath.close()
++                                                        }
++                                                        "mask_ejderha" -> {
++                                                            mainColor = "#1B5E20"
++                                                            borderColor = "#81C784"
++                                                            maskPath.moveTo(0f, eyeDistance * 0.1f)
++                                                            maskPath.cubicTo(-eyeDistance * 0.6f, eyeDistance * 0.3f,
++                                                                             -eyeDistance * 1.2f, eyeDistance * 0.2f,
++                                                                             -eyeDistance * 1.4f, -eyeDistance * 0.5f)
++                                                            maskPath.lineTo(-eyeDistance * 1.0f, -eyeDistance * 0.3f)
++                                                            maskPath.lineTo(-eyeDistance * 0.9f, -eyeDistance * 0.7f)
++                                                            maskPath.lineTo(-eyeDistance * 0.5f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(0f, -eyeDistance * 0.4f)
++                                                            maskPath.lineTo(eyeDistance * 0.5f, -eyeDistance * 0.2f)
++                                                            maskPath.lineTo(eyeDistance * 0.9f, -eyeDistance * 0.7f)
++                                                            maskPath.lineTo(eyeDistance * 1.0f, -eyeDistance * 0.3f)
++                                                            maskPath.lineTo(eyeDistance * 1.4f, -eyeDistance * 0.5f)
++                                                            maskPath.cubicTo(eyeDistance * 1.2f, eyeDistance * 0.2f,
++                                                                             eyeDistance * 0.6f, eyeDistance * 0.3f,
++                                                                             0f, eyeDistance * 0.1f)
++                                                            maskPath.close()
++                                                        }
++                                                        "mask_siber" -> {
++                                                            mainColor = "#00E5FF"
++                                                            borderColor = "#FF3D00"
++                                                            maskPath.moveTo(-eyeDistance * 1.2f, -eyeDistance * 0.3f)
++                                                            maskPath.lineTo(eyeDistance * 1.2f, -eyeDistance * 0.3f)
++                                                            maskPath.lineTo(eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                            maskPath.lineTo(eyeDistance * 0.8f, eyeDistance * 0.4f)
++                                                            maskPath.lineTo(-eyeDistance * 0.8f, eyeDistance * 0.4f)
++                                                            maskPath.lineTo(-eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                            maskPath.close()
++                                                        }
++                                                        "mask_haydut" -> {
++                                                            mainColor = "#B71C1C"
++                                                            borderColor = "#000000"
++                                                            maskPath.moveTo(-eyeDistance * 1.3f, -eyeDistance * 0.4f)
++                                                            maskPath.lineTo(eyeDistance * 0.9f, -eyeDistance * 0.1f)
++                                                            maskPath.lineTo(eyeDistance * 1.2f, eyeDistance * 0.4f)
++                                                            maskPath.lineTo(-eyeDistance * 0.8f, eyeDistance * 0.3f)
++                                                            maskPath.close()
+                                                         }
+                                                     }
++                                                    
++                                                    if (filter.startsWith("fem_") || filter.startsWith("mask_")) {
++                                                        val leftEyeCutout = Path().apply {
++                                                            addCircle(-eyeDistance * 0.5f, 0f, eyeDistance * 0.30f, Path.Direction.CW)
++                                                        }
++                                                        val rightEyeCutout = Path().apply {
++                                                            addCircle(eyeDistance * 0.5f, 0f, eyeDistance * 0.30f, Path.Direction.CW)
++                                                        }
++                                                        val finalMask = Path().apply {
++                                                            op(maskPath, leftEyeCutout, Path.Op.DIFFERENCE)
++                                                            op(this, rightEyeCutout, Path.Op.DIFFERENCE)
++                                                        }
++                                                        
++                                                        val paintFill = Paint().apply {
++                                                            color = android.graphics.Color.parseColor(mainColor)
++                                                            style = Paint.Style.FILL
++                                                            isAntiAlias = true
++                                                        }
++                                                        val paintStroke = Paint().apply {
++                                                            color = android.graphics.Color.parseColor(borderColor)
++                                                            style = Paint.Style.STROKE
++                                                            strokeWidth = eyeDistance * 0.04f
++                                                            isAntiAlias = true
++                                                        }
++                                                        
++                                                        canvas.save()
++                                                        canvas.translate(eyeMidX, eyeMidY)
++                                                        canvas.rotate(rollAngle)
++                                                        canvas.drawPath(finalMask, paintFill)
++                                                        canvas.drawPath(finalMask, paintStroke)
++                                                        canvas.restore()
++                                                    }
++                                                    
++                                                    val bitmap = when (filter) {
++                                                        "sincap" -> if (isTalking) sincapAcik else sincapKapali
++                                                        "kurt"   -> if (isTalking) kurtAcik   else kurtKapali
++                                                        else     -> null
++                                                    }
++                                                    if (bitmap != null) {
++                                                        val animalPaint = Paint().apply {
++                                                            isAntiAlias = true
++                                                            alpha = 178
++                                                        }
++                                                        val size = eyeDistance * 3.3f
++                                                        val nx = getX(1)
++                                                        val ny = getY(1)
++                                                        canvas.save()
++                                                        canvas.translate(nx, ny)
++                                                        canvas.rotate(rollAngle)
++                                                        val dst = android.graphics.RectF(-size / 2f, -size / 2f - eyeDistance * 0.2f, size / 2f, size / 2f - eyeDistance * 0.2f)
++                                                        canvas.drawBitmap(bitmap, null, dst, animalPaint)
++                                                        canvas.restore()
++                                                    }
+                                                     canvas.restoreToCount(savedCount)
+                                                 }
+                                                 true
+@@ -1525,12 +1588,16 @@ fun OnlineGameplayView(
+ 
+                                             try {
+                                                 cameraProvider.unbindAll()
+-                                                val useCaseGroup = UseCaseGroup.Builder()
++                                                val useCaseGroupBuilder = UseCaseGroup.Builder()
+                                                     .addUseCase(preview)
+                                                     .addUseCase(videoCapture)
+                                                     .addUseCase(imageAnalysis)
+                                                     .addEffect(overlayEffect)
+-                                                    .build()
++                                                
++                                                previewView.viewPort?.let {
++                                                    useCaseGroupBuilder.setViewPort(it)
++                                                }
++                                                val useCaseGroup = useCaseGroupBuilder.build()
+ 
+                                                 cameraProvider.bindToLifecycle(
+                                                     lifecycleOwner,
+@@ -1640,11 +1707,16 @@ fun OnlineGameplayView(
+                                  ) {
+                                      val filters = listOf(
+                                          "none" to "❌ Filtresiz",
+-                                         "gozluk" to "🕶️ Gözlük",
+-                                         "biyik" to "👨 Bıyık",
+-                                         "tac" to "👑 Taç",
+-                                         "sakal" to "🧔 Sakal",
+-                                         "kulak" to "🐱 Kulak"
++                                         "fem_kedi" to "🐱 Zarif Kedi",
++                                         "fem_kelebek" to "🦋 Kelebek",
++                                         "fem_altin" to "👑 Altın Barok",
++                                         "fem_kralice" to "👸 Kızıl Kraliçe",
++                                         "fem_kugu" to "🦢 Gümüş Kuğu",
++                                         "mask_yarasa" to "🦇 Yarasa",
++                                         "mask_gladyator" to "🛡️ Gladyatör",
++                                         "mask_ejderha" to "🐲 Ejderha",
++                                         "mask_siber" to "🤖 Siberpunk",
++                                         "mask_haydut" to "🎭 Haydut"
+                                      )
+                                      items(filters) { (id, label) ->
+                                          val isSelected = activeFilter == id
+@@ -1732,7 +1804,7 @@ fun OnlineGameplayView(
+                                         }
+                                     }
+ 
+-                                    if (recordedUri != null && !isUploading) {
++                                    if (recordedUri != null && !isUploading && !isPublishingToWorld) {
+                                         Button(
+                                             onClick = {
+                                                 isUploading = true
+@@ -1768,12 +1840,48 @@ fun OnlineGameplayView(
+                                         }
+                                     }
+ 
+-                                    if (isUploading) {
++                                    if (isUploading || isPublishingToWorld) {
+                                         CircularProgressIndicator(color = Color.White)
+                                     }
+                                 }
+                                 
+-                                if (recordedUri != null && !isUploading) {
++                                if (recordedUri != null && !isUploading && !isPublishingToWorld) {
++                                    Button(
++                                        onClick = {
++                                            isPublishingToWorld = true
++                                            coroutineScope.launch {
++                                                try {
++                                                    repository.publishPublicVideo(
++                                                        gameName = activeGame.name,
++                                                        taskText = currentTaskText,
++                                                        filterName = activeFilter,
++                                                        videoUri = recordedUri!!
++                                                    )
++                                                    withContext(Dispatchers.Main) {
++                                                        Toast.makeText(context, "Video Dünya'da 1 saatliğine yayınlandı!", Toast.LENGTH_LONG).show()
++                                                    }
++                                                } catch (e: Exception) {
++                                                    e.printStackTrace()
++                                                    withContext(Dispatchers.Main) {
++                                                        Toast.makeText(context, "Yayınlama Hatası: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
++                                                    }
++                                                } finally {
++                                                    isPublishingToWorld = false
++                                                }
++                                            }
++                                        },
++                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
++                                        shape = RoundedCornerShape(16.dp),
++                                        modifier = Modifier
++                                            .fillMaxWidth(0.6f)
++                                            .padding(bottom = 8.dp)
++                                            .height(56.dp)
++                                    ) {
++                                        Icon(imageVector = Icons.Default.Public, contentDescription = "Publish", tint = Color.White)
++                                        Spacer(modifier = Modifier.width(8.dp))
++                                        Text("DÜNYAYA SUN (1 SAAT)", color = Color.White, fontWeight = FontWeight.Black)
++                                    }
++
+                                     Button(
+                                         onClick = {
+                                             coroutineScope.launch {
+diff --git a/app/src/main/java/com/example/unmask/ui/TestScreen.kt b/app/src/main/java/com/example/unmask/ui/TestScreen.kt
+index 8dc809d..6939d01 100644
+--- a/app/src/main/java/com/example/unmask/ui/TestScreen.kt
++++ b/app/src/main/java/com/example/unmask/ui/TestScreen.kt
+@@ -64,7 +64,7 @@ fun TestScreen(
+     val context = LocalContext.current
+     val lifecycleOwner = LocalLifecycleOwner.current
+     
+-    var activeFilter by remember { mutableStateOf("gozluk") }
++    var activeFilter by remember { mutableStateOf("none") }
+     val latestFaceData = remember { java.util.concurrent.atomic.AtomicReference<TestFaceData?>(null) }
+     val latestRotation = remember { java.util.concurrent.atomic.AtomicInteger(0) }
+     val faceLandmarkerState = remember { mutableStateOf<FaceLandmarker?>(null) }
+@@ -142,16 +142,18 @@ fun TestScreen(
+                     .setResultListener { result, mpImage ->
+                         val landmarksList = result.faceLandmarks()
+                         val faceLandmarks = landmarksList?.firstOrNull()
+-                        val rotation = latestRotation.get()
+                         if (faceLandmarks != null) {
++                            val rot = latestRotation.get()
+                             val rawLandmarks = faceLandmarks.map { lm ->
+-                                val raw = when (rotation) {
+-                                    90 -> Pair(lm.y(), 1f - lm.x())
+-                                    180 -> Pair(1f - lm.x(), 1f - lm.y())
+-                                    270 -> Pair(1f - lm.y(), lm.x())
+-                                    else -> Pair(lm.x(), lm.y())
++                                val rx = lm.x()
++                                val ry = lm.y()
++                                val (xs, ys) = when (rot) {
++                                    90 -> Pair(ry, 1f - rx)
++                                    180 -> Pair(1f - rx, 1f - ry)
++                                    270 -> Pair(1f - ry, rx)
++                                    else -> Pair(rx, ry)
+                                 }
+-                                Keypoint(raw.first, raw.second)
++                                Keypoint(xs, ys)
+                             }
+                             val newFaceData = TestFaceData(
+                                 landmarks = rawLandmarks,
+@@ -191,16 +193,18 @@ fun TestScreen(
+                         .setResultListener { result, mpImage ->
+                             val landmarksList = result.faceLandmarks()
+                             val faceLandmarks = landmarksList?.firstOrNull()
+-                            val rotation = latestRotation.get()
+                             if (faceLandmarks != null) {
++                                val rot = latestRotation.get()
+                                 val rawLandmarks = faceLandmarks.map { lm ->
+-                                    val raw = when (rotation) {
+-                                        90 -> Pair(lm.y(), 1f - lm.x())
+-                                        180 -> Pair(1f - lm.x(), 1f - lm.y())
+-                                        270 -> Pair(1f - lm.y(), lm.x())
+-                                        else -> Pair(lm.x(), lm.y())
++                                    val rx = lm.x()
++                                    val ry = lm.y()
++                                    val (xs, ys) = when (rot) {
++                                        90 -> Pair(ry, 1f - rx)
++                                        180 -> Pair(1f - rx, 1f - ry)
++                                        270 -> Pair(1f - ry, rx)
++                                        else -> Pair(rx, ry)
+                                     }
+-                                    Keypoint(raw.first, raw.second)
++                                    Keypoint(xs, ys)
+                                 }
+                                 val newFaceData = TestFaceData(
+                                     landmarks = rawLandmarks,
+@@ -273,13 +277,16 @@ fun TestScreen(
+     val filters = remember {
+         listOf(
+             FilterInfo("Yok", "none", Color.Gray),
+-            FilterInfo("Gözlük", "gozluk", Color(0xFF3B82F6)),
+-            FilterInfo("Bıyık", "biyik", Color(0xFF10B981)),
+-            FilterInfo("Taç", "tac", Color(0xFFF59E0B)),
+-            FilterInfo("Sakal", "sakal", Color(0xFF8B5CF6)),
+-            FilterInfo("Kulak", "kulak", Color(0xFFEC4899)),
+-            FilterInfo("Sincap", "sincap", Color(0xFFD97706)),
+-            FilterInfo("Kurt", "kurt", Color(0xFF4B5563))
++            FilterInfo("Zarif Kedi", "fem_kedi", Color(0xFFD81B60)),
++            FilterInfo("Kelebek", "fem_kelebek", Color(0xFF8E24AA)),
++            FilterInfo("Altın Barok", "fem_altin", Color(0xFFFFD700)),
++            FilterInfo("Kızıl Kraliçe", "fem_kralice", Color(0xFFC62828)),
++            FilterInfo("Gümüş Kuğu", "fem_kugu", Color(0xFF00ACC1)),
++            FilterInfo("Yarasa", "mask_yarasa", Color(0xFF212121)),
++            FilterInfo("Gladyatör", "mask_gladyator", Color(0xFF78909C)),
++            FilterInfo("Ejderha", "mask_ejderha", Color(0xFF1B5E20)),
++            FilterInfo("Siberpunk", "mask_siber", Color(0xFF00E5FF)),
++            FilterInfo("Haydut", "mask_haydut", Color(0xFFB71C1C))
+         )
+     }
+     
+@@ -346,210 +353,269 @@ fun TestScreen(
+                                     
+                                     val filter = activeFilter
+                                     val face = latestFaceData.get()
+-                                    
+-                                    if (face != null && filter != "none" && face.landmarks.isNotEmpty()) {
+-                                        val savedCount = canvas.save()
+-                                        canvas.concat(frame.sensorToBufferTransform)
+-                                        
+-                                        val landmarks = face.landmarks
+-                                        val imgW = face.imageWidth.toFloat()
+-                                        val imgH = face.imageHeight.toFloat()
+-                                        
+-                                        fun getX(idx: Int) = landmarks[idx].x * imgW
+-                                        fun getY(idx: Int) = landmarks[idx].y * imgH
+-                                        
+-                                        val lex = getX(33)
+-                                        val ley = getY(33)
+-                                        val rex = getX(263)
+-                                        val rey = getY(263)
+-                                        
+-                                        val dX = rex - lex
+-                                        val dY = rey - ley
+-                                        val rollAngle = Math.toDegrees(Math.atan2(dY.toDouble(), dX.toDouble())).toFloat()
+-                                        
+-                                        val eyeMidX = (lex + rex) / 2f
+-                                        val eyeMidY = (ley + rey) / 2f
+-                                        
+-                                        canvas.rotate(rollAngle, eyeMidX, eyeMidY)
+-                                        
+-                                        val eyeDistance = Math.hypot((rex - lex).toDouble(), (rey - ley).toDouble()).toFloat()
+-                                        val faceW = eyeDistance * 2.2f
+-                                        val faceH = eyeDistance * 2.2f
+-                                        
+-                                        when (filter) {
+-                                            "gozluk" -> {
+-                                                val glassPaint = Paint().apply {
+-                                                    color = android.graphics.Color.argb(220, 20, 20, 20)
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val highlightPaint = Paint().apply {
+-                                                    color = android.graphics.Color.argb(128, 255, 255, 255)
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val bridgePaint = Paint().apply {
+-                                                    color = android.graphics.Color.BLACK
+-                                                    style = Paint.Style.STROKE
+-                                                    strokeWidth = faceW * 0.04f
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val lensW = eyeDistance * 0.7f
+-                                                val lensH = eyeDistance * 0.5f
+-                                                val spacing = eyeDistance * 0.2f
+-                                                val eyeY = eyeMidY
+-                                                canvas.drawRoundRect(eyeMidX - spacing/2 - lensW, eyeY - lensH/2, eyeMidX - spacing/2, eyeY + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+-                                                canvas.drawCircle(eyeMidX - spacing/2 - lensW*0.7f, eyeY - lensH*0.2f, lensW*0.08f, highlightPaint)
+-                                                canvas.drawRoundRect(eyeMidX + spacing/2, eyeY - lensH/2, eyeMidX + spacing/2 + lensW, eyeY + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+-                                                canvas.drawCircle(eyeMidX + spacing/2 + lensW*0.3f, eyeY - lensH*0.2f, lensW*0.08f, highlightPaint)
+-                                                canvas.drawLine(eyeMidX - spacing/2, eyeY, eyeMidX + spacing/2, eyeY, bridgePaint)
+-                                            }
+-                                            "biyik" -> {
+-                                                val mustachePaint = Paint().apply {
+-                                                    color = android.graphics.Color.BLACK
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val mx = getX(164)
+-                                                val my = getY(164)
+-                                                val mw = eyeDistance * 0.8f
+-                                                val mh = eyeDistance * 0.22f
+-                                                val leftPath = Path().apply {
+-                                                    moveTo(mx, my)
+-                                                    cubicTo(mx - mw*0.3f, my - mh*0.3f, mx - mw*0.7f, my - mh*0.5f, mx - mw, my + mh*0.2f)
+-                                                    cubicTo(mx - mw*0.6f, my + mh*0.8f, mx - mw*0.2f, my + mh*0.4f, mx, my + mh*0.1f)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(leftPath, mustachePaint)
+-                                                val rightPath = Path().apply {
+-                                                    moveTo(mx, my)
+-                                                    cubicTo(mx + mw*0.3f, my - mh*0.3f, mx + mw*0.7f, my - mh*0.5f, mx + mw, my + mh*0.2f)
+-                                                    cubicTo(mx + mw*0.6f, my + mh*0.8f, mx + mw*0.2f, my + mh*0.4f, mx, my + mh*0.1f)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(rightPath, mustachePaint)
+-                                            }
+-                                            "tac" -> {
+-                                                val crownPaint = Paint().apply {
+-                                                    color = android.graphics.Color.rgb(253, 224, 71)
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val jewelPaint = Paint().apply {
+-                                                    color = android.graphics.Color.rgb(239, 68, 68)
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val rx = getX(10)
+-                                                val ry = getY(10) - eyeDistance * 0.4f
+-                                                val rw = eyeDistance * 0.9f
+-                                                val rh = eyeDistance * 0.6f
+-                                                val crownPath = Path().apply {
+-                                                    moveTo(rx - rw, ry)
+-                                                    lineTo(rx - rw*0.8f, ry - rh*0.6f)
+-                                                    lineTo(rx - rw*0.4f, ry - rh*0.3f)
+-                                                    lineTo(rx, ry - rh)
+-                                                    lineTo(rx + rw*0.4f, ry - rh*0.3f)
+-                                                    lineTo(rx + rw*0.8f, ry - rh*0.6f)
+-                                                    lineTo(rx + rw, ry)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(crownPath, crownPaint)
+-                                                val jRadius = faceW * 0.025f
+-                                                canvas.drawCircle(rx - rw*0.8f, ry - rh*0.6f, jRadius, jewelPaint)
+-                                                canvas.drawCircle(rx, ry - rh, jRadius, jewelPaint)
+-                                                canvas.drawCircle(rx + rw*0.8f, ry - rh*0.6f, jRadius, jewelPaint)
+-                                            }
+-                                            "sakal" -> {
+-                                                val beardPaint = Paint().apply {
+-                                                    color = android.graphics.Color.rgb(40, 30, 20)
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val beardPath = Path().apply {
+-                                                    val bx = getX(164)
+-                                                    val by = getY(164) + eyeDistance * 0.1f
+-                                                    val bw = Math.hypot((getX(454) - getX(234)).toDouble(), (getY(454) - getY(234)).toDouble()).toFloat() * 0.5f
+-                                                    val bh = eyeDistance * 1.0f
+-                                                    moveTo(bx - bw, by)
+-                                                    cubicTo(bx - bw, by + bh*0.5f, bx - bw*0.6f, by + bh, bx, by + bh)
+-                                                    cubicTo(bx + bw*0.6f, by + bh, bx + bw, by + bh*0.5f, bx + bw, by)
+-                                                    lineTo(bx + bw*0.6f, by)
+-                                                    cubicTo(bx + bw*0.4f, by + bh*0.2f, bx + bw*0.2f, by + bh*0.3f, bx, by + bh*0.3f)
+-                                                    cubicTo(bx - bw*0.2f, by + bh*0.3f, bx - bw*0.4f, by + bh*0.2f, bx - bw*0.6f, by)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(beardPath, beardPaint)
+-                                            }
+-                                            "kulak" -> {
+-                                                val earOuterPaint = Paint().apply {
+-                                                    color = android.graphics.Color.rgb(244, 63, 94)
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val earInnerPaint = Paint().apply {
+-                                                    color = android.graphics.Color.rgb(254, 205, 211)
+-                                                    style = Paint.Style.FILL
+-                                                    isAntiAlias = true
+-                                                }
+-                                                val earW = eyeDistance * 0.45f
+-                                                val earH = eyeDistance * 0.45f
+-                                                val earSpacing = eyeDistance * 0.55f
+-                                                val earY = getY(10) - eyeDistance * 0.3f
+-                                                val leftEarPath = Path().apply {
+-                                                    moveTo(eyeMidX - earSpacing - earW/2, earY)
+-                                                    lineTo(eyeMidX - earSpacing, earY - earH)
+-                                                    lineTo(eyeMidX - earSpacing + earW/2, earY)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(leftEarPath, earOuterPaint)
+-                                                val leftInnerPath = Path().apply {
+-                                                    moveTo(eyeMidX - earSpacing - earW*0.3f, earY)
+-                                                    lineTo(eyeMidX - earSpacing, earY - earH*0.7f)
+-                                                    lineTo(eyeMidX - earSpacing + earW*0.3f, earY)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(leftInnerPath, earInnerPaint)
+-                                                val rightEarPath = Path().apply {
+-                                                    moveTo(eyeMidX + earSpacing - earW/2, earY)
+-                                                    lineTo(eyeMidX + earSpacing, earY - earH)
+-                                                    lineTo(eyeMidX + earSpacing + earW/2, earY)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(rightEarPath, earOuterPaint)
+-                                                val rightInnerPath = Path().apply {
+-                                                    moveTo(eyeMidX + earSpacing - earW*0.3f, earY)
+-                                                    lineTo(eyeMidX + earSpacing, earY - earH*0.7f)
+-                                                    lineTo(eyeMidX + earSpacing + earW*0.3f, earY)
+-                                                    close()
+-                                                }
+-                                                canvas.drawPath(rightInnerPath, earInnerPaint)
+-                                            }
+-                                            "sincap", "kurt" -> {
+-                                                val bitmap = when (filter) {
+-                                                    "sincap" -> if (isTalking) sincapAcik else sincapKapali
+-                                                    "kurt"   -> if (isTalking) kurtAcik   else kurtKapali
+-                                                    else     -> null
+-                                                }
+-                                                if (bitmap != null) {
+-                                                    val animalPaint = Paint().apply {
+-                                                        isAntiAlias = true
+-                                                        alpha = 178
+-                                                    }
+-                                                    val size = eyeDistance * 3.3f
+-                                                    val left = getX(1) - size / 2f
+-                                                    val top = getY(1) - size / 2f - eyeDistance * 0.2f
+-                                                    val right = getX(1) + size / 2f
+-                                                    val bottom = getY(1) + size / 2f - eyeDistance * 0.2f
+-                                                    val dst = android.graphics.RectF(left, top, right, bottom)
+-                                                    canvas.drawBitmap(bitmap, null, dst, animalPaint)
+-                                                }
+-                                            }
+-                                        }
+-                                        canvas.restoreToCount(savedCount)
+-                                    }
+-                                    true
+-                                }
++                                     if (face != null && filter != "none" && face.landmarks.isNotEmpty()) {
++                                         val savedCount = canvas.save()
++                                         
++                                         val landmarks = face.landmarks
++                                         val matrix = frame.sensorToBufferTransform
++                                         val pts = FloatArray(landmarks.size * 2)
++                                         for (i in landmarks.indices) {
++                                             pts[i * 2] = landmarks[i].x * face.imageWidth
++                                             pts[i * 2 + 1] = landmarks[i].y * face.imageHeight
++                                         }
++                                         matrix.mapPoints(pts)
++                                         
++                                         fun getX(idx: Int) = pts[idx * 2]
++                                         fun getY(idx: Int) = pts[idx * 2 + 1]
++                                         
++                                         val lex = getX(33)
++                                         val ley = getY(33)
++                                         val rex = getX(263)
++                                         val rey = getY(263)
++                                         
++                                         val lx = getX(234)
++                                         val ly = getY(234)
++                                         val rx = getX(454)
++                                         val ry = getY(454)
++                                         
++                                         val dX = rx - lx
++                                         val dY = ry - ly
++                                         val rollAngle = Math.toDegrees(Math.atan2(dY.toDouble(), dX.toDouble())).toFloat()
++                                         
++                                         val eyeMidX = (lex + rex) / 2f
++                                         val eyeMidY = (ley + rey) / 2f
++                                         val eyeDistance = Math.hypot((rex - lex).toDouble(), (rey - ley).toDouble()).toFloat()
++                                         val maskPath = Path()
++                                         var mainColor = "#FFFFFF"
++                                         var borderColor = "#000000"
++                                         
++                                         when (filter) {
++                                             "fem_kedi" -> {
++                                                 mainColor = "#D81B60"
++                                                 borderColor = "#FFD700"
++                                                 maskPath.moveTo(0f, eyeDistance * 0.15f)
++                                                 maskPath.cubicTo(-eyeDistance * 0.6f, eyeDistance * 0.45f,
++                                                                  -eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                  -eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                 maskPath.cubicTo(-eyeDistance * 1.1f, -eyeDistance * 0.55f,
++                                                                  -eyeDistance * 0.5f, -eyeDistance * 0.2f,
++                                                                  0f, -eyeDistance * 0.1f)
++                                                 maskPath.cubicTo(eyeDistance * 0.5f, -eyeDistance * 0.2f,
++                                                                  eyeDistance * 1.1f, -eyeDistance * 0.55f,
++                                                                  eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                 maskPath.cubicTo(eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                  eyeDistance * 0.6f, eyeDistance * 0.45f,
++                                                                  0f, eyeDistance * 0.15f)
++                                                 maskPath.close()
++                                             }
++                                             "fem_kelebek" -> {
++                                                 mainColor = "#8E24AA"
++                                                 borderColor = "#E040FB"
++                                                 maskPath.moveTo(0f, eyeDistance * 0.1f)
++                                                 maskPath.cubicTo(-eyeDistance * 0.5f, -eyeDistance * 0.1f,
++                                                                  -eyeDistance * 1.1f, -eyeDistance * 0.8f,
++                                                                  -eyeDistance * 1.4f, -eyeDistance * 0.7f)
++                                                 maskPath.cubicTo(-eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                  -eyeDistance * 1.4f, eyeDistance * 0.8f,
++                                                                  -eyeDistance * 0.7f, eyeDistance * 0.7f)
++                                                 maskPath.lineTo(0f, eyeDistance * 0.2f)
++                                                 maskPath.lineTo(eyeDistance * 0.7f, eyeDistance * 0.7f)
++                                                 maskPath.cubicTo(eyeDistance * 1.4f, eyeDistance * 0.8f,
++                                                                  eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                  eyeDistance * 1.4f, -eyeDistance * 0.7f)
++                                                 maskPath.cubicTo(eyeDistance * 1.1f, -eyeDistance * 0.8f,
++                                                                  eyeDistance * 0.5f, -eyeDistance * 0.1f,
++                                                                  0f, eyeDistance * 0.1f)
++                                                 maskPath.close()
++                                             }
++                                             "fem_altin" -> {
++                                                 mainColor = "#FFD700"
++                                                 borderColor = "#B8860B"
++                                                 maskPath.moveTo(0f, eyeDistance * 0.2f)
++                                                 maskPath.cubicTo(-eyeDistance * 0.7f, eyeDistance * 0.5f,
++                                                                  -eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                  -eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                 maskPath.cubicTo(-eyeDistance * 1.1f, -eyeDistance * 0.7f,
++                                                                  -eyeDistance * 0.4f, -eyeDistance * 0.3f,
++                                                                  0f, -eyeDistance * 0.2f)
++                                                 maskPath.cubicTo(eyeDistance * 0.4f, -eyeDistance * 0.3f,
++                                                                  eyeDistance * 1.1f, -eyeDistance * 0.7f,
++                                                                  eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                 maskPath.cubicTo(eyeDistance * 1.3f, eyeDistance * 0.2f,
++                                                                  eyeDistance * 0.7f, eyeDistance * 0.5f,
++                                                                  0f, eyeDistance * 0.2f)
++                                                 maskPath.close()
++                                             }
++                                             "fem_kralice" -> {
++                                                 mainColor = "#C62828"
++                                                 borderColor = "#FFD700"
++                                                 maskPath.moveTo(0f, eyeDistance * 0.15f)
++                                                 maskPath.cubicTo(-eyeDistance * 0.7f, eyeDistance * 0.4f,
++                                                                  -eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                  -eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                 maskPath.lineTo(-eyeDistance * 1.0f, -eyeDistance * 0.1f)
++                                                 maskPath.lineTo(-eyeDistance * 0.7f, -eyeDistance * 0.6f)
++                                                 maskPath.lineTo(-eyeDistance * 0.4f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(0f, -eyeDistance * 0.8f)
++                                                 maskPath.lineTo(eyeDistance * 0.4f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(eyeDistance * 0.7f, -eyeDistance * 0.6f)
++                                                 maskPath.lineTo(eyeDistance * 1.0f, -eyeDistance * 0.1f)
++                                                 maskPath.lineTo(eyeDistance * 1.3f, -eyeDistance * 0.3f)
++                                                 maskPath.cubicTo(eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                  eyeDistance * 0.7f, eyeDistance * 0.4f,
++                                                                  0f, eyeDistance * 0.15f)
++                                                 maskPath.close()
++                                             }
++                                             "fem_kugu" -> {
++                                                 mainColor = "#E0F7FA"
++                                                 borderColor = "#00ACC1"
++                                                 maskPath.moveTo(0f, eyeDistance * 0.1f)
++                                                 maskPath.cubicTo(-eyeDistance * 0.6f, eyeDistance * 0.35f,
++                                                                  -eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                  -eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                 maskPath.lineTo(-eyeDistance * 1.1f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(-eyeDistance * 0.9f, -eyeDistance * 0.5f)
++                                                 maskPath.lineTo(-eyeDistance * 0.6f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(0f, -eyeDistance * 0.3f)
++                                                 maskPath.lineTo(eyeDistance * 0.6f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(eyeDistance * 0.9f, -eyeDistance * 0.5f)
++                                                 maskPath.lineTo(eyeDistance * 1.1f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(eyeDistance * 1.4f, -eyeDistance * 0.4f)
++                                                 maskPath.cubicTo(eyeDistance * 1.2f, eyeDistance * 0.1f,
++                                                                  eyeDistance * 0.6f, eyeDistance * 0.35f,
++                                                                  0f, eyeDistance * 0.1f)
++                                                 maskPath.close()
++                                             }
++                                             "mask_yarasa" -> {
++                                                 mainColor = "#212121"
++                                                 borderColor = "#424242"
++                                                 maskPath.moveTo(0f, -eyeDistance * 0.1f)
++                                                 maskPath.lineTo(-eyeDistance * 0.5f, -eyeDistance * 0.3f)
++                                                 maskPath.lineTo(-eyeDistance * 1.2f, -eyeDistance * 0.8f)
++                                                 maskPath.lineTo(-eyeDistance * 1.0f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(-eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                 maskPath.cubicTo(-eyeDistance * 0.9f, eyeDistance * 0.45f,
++                                                                  -eyeDistance * 0.5f, eyeDistance * 0.3f,
++                                                                  0f, eyeDistance * 0.25f)
++                                                 maskPath.cubicTo(eyeDistance * 0.5f, eyeDistance * 0.3f,
++                                                                  eyeDistance * 0.9f, eyeDistance * 0.45f,
++                                                                  eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                 maskPath.lineTo(eyeDistance * 1.0f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(eyeDistance * 1.2f, -eyeDistance * 0.8f)
++                                                 maskPath.lineTo(eyeDistance * 0.5f, -eyeDistance * 0.3f)
++                                                 maskPath.close()
++                                             }
++                                             "mask_gladyator" -> {
++                                                 mainColor = "#78909C"
++                                                 borderColor = "#37474F"
++                                                 maskPath.moveTo(0f, -eyeDistance * 0.4f)
++                                                 maskPath.lineTo(-eyeDistance * 1.2f, -eyeDistance * 0.4f)
++                                                 maskPath.lineTo(-eyeDistance * 1.2f, eyeDistance * 0.1f)
++                                                 maskPath.lineTo(-eyeDistance * 0.6f, eyeDistance * 0.5f)
++                                                 maskPath.lineTo(0f, eyeDistance * 0.1f)
++                                                 maskPath.lineTo(eyeDistance * 0.6f, eyeDistance * 0.5f)
++                                                 maskPath.lineTo(eyeDistance * 1.2f, eyeDistance * 0.1f)
++                                                 maskPath.lineTo(eyeDistance * 1.2f, -eyeDistance * 0.4f)
++                                                 maskPath.close()
++                                             }
++                                             "mask_ejderha" -> {
++                                                 mainColor = "#1B5E20"
++                                                 borderColor = "#81C784"
++                                                 maskPath.moveTo(0f, eyeDistance * 0.1f)
++                                                 maskPath.cubicTo(-eyeDistance * 0.6f, eyeDistance * 0.3f,
++                                                                  -eyeDistance * 1.2f, eyeDistance * 0.2f,
++                                                                  -eyeDistance * 1.4f, -eyeDistance * 0.5f)
++                                                 maskPath.lineTo(-eyeDistance * 1.0f, -eyeDistance * 0.3f)
++                                                 maskPath.lineTo(-eyeDistance * 0.9f, -eyeDistance * 0.7f)
++                                                 maskPath.lineTo(-eyeDistance * 0.5f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(0f, -eyeDistance * 0.4f)
++                                                 maskPath.lineTo(eyeDistance * 0.5f, -eyeDistance * 0.2f)
++                                                 maskPath.lineTo(eyeDistance * 0.9f, -eyeDistance * 0.7f)
++                                                 maskPath.lineTo(eyeDistance * 1.0f, -eyeDistance * 0.3f)
++                                                 maskPath.lineTo(eyeDistance * 1.4f, -eyeDistance * 0.5f)
++                                                 maskPath.cubicTo(eyeDistance * 1.2f, eyeDistance * 0.2f,
++                                                                  eyeDistance * 0.6f, eyeDistance * 0.3f,
++                                                                  0f, eyeDistance * 0.1f)
++                                                 maskPath.close()
++                                             }
++                                             "mask_siber" -> {
++                                                 mainColor = "#00E5FF"
++                                                 borderColor = "#FF3D00"
++                                                 maskPath.moveTo(-eyeDistance * 1.2f, -eyeDistance * 0.3f)
++                                                 maskPath.lineTo(eyeDistance * 1.2f, -eyeDistance * 0.3f)
++                                                 maskPath.lineTo(eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                 maskPath.lineTo(eyeDistance * 0.8f, eyeDistance * 0.4f)
++                                                 maskPath.lineTo(-eyeDistance * 0.8f, eyeDistance * 0.4f)
++                                                 maskPath.lineTo(-eyeDistance * 1.3f, eyeDistance * 0.1f)
++                                                 maskPath.close()
++                                             }
++                                             "mask_haydut" -> {
++                                                 mainColor = "#B71C1C"
++                                                 borderColor = "#000000"
++                                                 maskPath.moveTo(-eyeDistance * 1.3f, -eyeDistance * 0.4f)
++                                                 maskPath.lineTo(eyeDistance * 0.9f, -eyeDistance * 0.1f)
++                                                 maskPath.lineTo(eyeDistance * 1.2f, eyeDistance * 0.4f)
++                                                 maskPath.lineTo(-eyeDistance * 0.8f, eyeDistance * 0.3f)
++                                                 maskPath.close()
++                                             }
++                                         }
++                                         
++                                         if (filter.startsWith("fem_") || filter.startsWith("mask_")) {
++                                             val leftEyeCutout = Path().apply {
++                                                 addCircle(-eyeDistance * 0.5f, 0f, eyeDistance * 0.30f, Path.Direction.CW)
++                                             }
++                                             val rightEyeCutout = Path().apply {
++                                                 addCircle(eyeDistance * 0.5f, 0f, eyeDistance * 0.30f, Path.Direction.CW)
++                                             }
++                                             val finalMask = Path().apply {
++                                                 op(maskPath, leftEyeCutout, Path.Op.DIFFERENCE)
++                                                 op(this, rightEyeCutout, Path.Op.DIFFERENCE)
++                                             }
++                                             
++                                             val paintFill = Paint().apply {
++                                                 color = android.graphics.Color.parseColor(mainColor)
++                                                 style = Paint.Style.FILL
++                                                 isAntiAlias = true
++                                             }
++                                             val paintStroke = Paint().apply {
++                                                 color = android.graphics.Color.parseColor(borderColor)
++                                                 style = Paint.Style.STROKE
++                                                 strokeWidth = eyeDistance * 0.04f
++                                                 isAntiAlias = true
++                                             }
++                                             
++                                             canvas.save()
++                                             canvas.translate(eyeMidX, eyeMidY)
++                                             canvas.rotate(rollAngle)
++                                             canvas.drawPath(finalMask, paintFill)
++                                             canvas.drawPath(finalMask, paintStroke)
++                                             canvas.restore()
++                                         }
++                                         
++                                         val bitmap = when (filter) {
++                                             "sincap" -> if (isTalking) sincapAcik else sincapKapali
++                                             "kurt"   -> if (isTalking) kurtAcik   else kurtKapali
++                                             else     -> null
++                                         }
++                                         if (bitmap != null) {
++                                             val animalPaint = Paint().apply {
++                                                 isAntiAlias = true
++                                                 alpha = 178
++                                             }
++                                             val size = eyeDistance * 3.3f
++                                             val nx = getX(1)
++                                             val ny = getY(1)
++                                             canvas.save()
++                                             canvas.translate(nx, ny)
++                                             canvas.rotate(rollAngle)
++                                             val dst = android.graphics.RectF(-size / 2f, -size / 2f - eyeDistance * 0.2f, size / 2f, size / 2f - eyeDistance * 0.2f)
++                                             canvas.drawBitmap(bitmap, null, dst, animalPaint)
++                                             canvas.restore()
++                                         }
++                                         canvas.restoreToCount(savedCount)
++                                     }
++                                     true
++                                 }
+                                 
+                                 imageAnalysis.setAnalyzer(analysisExecutor) { imageProxy ->
+                                     val landmarker = faceLandmarkerState.value

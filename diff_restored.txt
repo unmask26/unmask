@@ -1,0 +1,695 @@
+﻿diff --git a/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt b/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt
+index 8d4eb6c..2dd7320 100644
+--- a/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt
++++ b/app/src/main/java/com/example/unmask/ui/DunyaScreen.kt
+@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.sp
+ import androidx.compose.ui.viewinterop.AndroidView
+ import androidx.core.content.ContextCompat
+ import com.example.unmask.data.*
++import kotlinx.coroutines.asExecutor
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
+@@ -83,18 +84,38 @@ fun DunyaScreen(
+     }
+ 
+     val user = currentUser!!
++
++    var selectedOnlineCategory by remember { mutableStateOf<String?>(null) }
++    var pendingCategory by remember { mutableStateOf<String?>(null) }
++    var showPasswordPrompt by remember { mutableStateOf(false) }
++    var inputPassword by remember { mutableStateOf("") }
++    var passwordError by remember { mutableStateOf(false) }
++
++    val onlineCategories = remember {
++        listOf(
++            OnlineCategoryInfo("İLİŞKİLER", "iliskiler", Color(0xFF8B5CF6), com.example.unmask.R.drawable.relations_icon),
++            OnlineCategoryInfo("ADRENALİN", "adrenalin", Color(0xFFEF4444), com.example.unmask.R.drawable.adrenaline_icon),
++            OnlineCategoryInfo("BİLGİ", "bilgi", Color(0xFFFBBF24), com.example.unmask.R.drawable.knowledge_icon),
++            OnlineCategoryInfo("AKTÜEL", "aktuel", Color(0xFF3B82F6), com.example.unmask.R.drawable.actual_icon),
++            OnlineCategoryInfo("HATIRALAR", "hatiralar", Color(0xFF10B981), com.example.unmask.R.drawable.memories_icon),
++            OnlineCategoryInfo("FANTEZİLER", "fanteziler", Color(0xFFEC4899), com.example.unmask.R.drawable.fantasies_icon),
++            OnlineCategoryInfo("+18", "adult", Color(0xFF111827), com.example.unmask.R.drawable.adult_icon),
++            OnlineCategoryInfo("SOFTHUB", "softhub", Color(0xFFF43F5E), com.example.unmask.R.drawable.softhub_icon)
++        )
++    }
+     val activeSession by repository.observeActiveSession(user.uid).collectAsState(initial = null)
+     val onlineUsers by repository.getOnlineUsers(user.uid).collectAsState(initial = emptyList())
+ 
+     // Heartbeat & Active Presence registration inside the lobby
+-    LaunchedEffect(activeSession) {
++    LaunchedEffect(activeSession, selectedOnlineCategory) {
+         while (activeSession == null) {
+             val now = System.currentTimeMillis()
+             val banUntil = user.banUntil ?: 0L
+             if (banUntil <= now) {
+-                repository.updatePresence(user.uid, user.displayName, "idle")
++                val status = if (selectedOnlineCategory != null) "searching:$selectedOnlineCategory" else "idle"
++                repository.updatePresence(user.uid, user.displayName, status, gender = user.gender)
+             } else {
+-                repository.updatePresence(user.uid, user.displayName, "offline", banUntil)
++                repository.updatePresence(user.uid, user.displayName, "offline", banUntil, gender = user.gender)
+             }
+             delay(4_000)
+         }
+@@ -170,110 +191,200 @@ fun DunyaScreen(
+                 )
+             }
+         } else if (activeSession == null) {
+-            // Matchmaking Lobby
++            // Matchmaking Lobby / Online Categories Choice
+             Column(
+                 modifier = Modifier
+                     .fillMaxSize()
+                     .statusBarsPadding()
+                     .padding(24.dp)
+             ) {
+-                Text(
+-                    text = "DÜNYA (ONLINE)",
+-                    fontSize = 32.sp,
+-                    fontWeight = FontWeight.Black,
+-                    color = Color.Black
+-                )
+-                Spacer(modifier = Modifier.height(4.dp))
+-                Text(
+-                    text = "Lobiye hoş geldiniz. Oyun oynamak istediğiniz rakibi seçin.",
+-                    fontSize = 13.sp,
+-                    color = Color.Black.copy(alpha = 0.5f),
+-                    fontWeight = FontWeight.Bold
+-                )
+-                Spacer(modifier = Modifier.height(24.dp))
++                if (selectedOnlineCategory == null) {
++                    Text(
++                        text = "ÇEVRİMİÇİ LOBİLER",
++                        fontSize = 32.sp,
++                        fontWeight = FontWeight.Black,
++                        color = Color.Black
++                    )
++                    Spacer(modifier = Modifier.height(4.dp))
++                    Text(
++                        text = "Oynamak istediğiniz lobi kategorisini seçin.",
++                        fontSize = 13.sp,
++                        color = Color.Black.copy(alpha = 0.5f),
++                        fontWeight = FontWeight.Bold
++                    )
++                    Spacer(modifier = Modifier.height(24.dp))
+ 
+-                if (onlineUsers.isEmpty()) {
+-                    Box(
+-                        modifier = Modifier
+-                            .weight(1f)
+-                            .fillMaxWidth(),
+-                        contentAlignment = Alignment.Center
++                    LazyColumn(
++                        modifier = Modifier.weight(1f),
++                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                     ) {
+-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+-                            CircularProgressIndicator(color = Color.Black.copy(alpha = 0.2f))
+-                            Spacer(modifier = Modifier.height(12.dp))
+-                            Text(
+-                                text = "Aktif oyuncu aranıyor...",
+-                                color = Color.Black.copy(alpha = 0.4f),
+-                                fontWeight = FontWeight.Bold,
+-                                fontSize = 14.sp
+-                            )
++                        items(onlineCategories.chunked(2)) { pair ->
++                            Row(
++                                modifier = Modifier.fillMaxWidth(),
++                                horizontalArrangement = Arrangement.spacedBy(16.dp)
++                            ) {
++                                val leftCat = pair[0]
++                                val leftCount = onlineUsers.count { it.status == "searching:${leftCat.key}" }
++                                OnlineCategoryCard(
++                                    category = leftCat,
++                                    playerCount = leftCount,
++                                    modifier = Modifier.weight(1f),
++                                    onClick = {
++                                        if (leftCat.key == "adult") {
++                                            pendingCategory = leftCat.key
++                                            showPasswordPrompt = true
++                                        } else {
++                                            selectedOnlineCategory = leftCat.key
++                                        }
++                                    }
++                                )
++
++                                if (pair.size > 1) {
++                                    val rightCat = pair[1]
++                                    val rightCount = onlineUsers.count { it.status == "searching:${rightCat.key}" }
++                                    OnlineCategoryCard(
++                                        category = rightCat,
++                                        playerCount = rightCount,
++                                        modifier = Modifier.weight(1f),
++                                        onClick = {
++                                            if (rightCat.key == "adult") {
++                                                pendingCategory = rightCat.key
++                                                showPasswordPrompt = true
++                                            } else {
++                                                selectedOnlineCategory = rightCat.key
++                                            }
++                                        }
++                                    )
++                                } else {
++                                    Spacer(modifier = Modifier.weight(1f))
++                                }
++                            }
+                         }
+                     }
+                 } else {
+-                    LazyColumn(
+-                        modifier = Modifier.weight(1f),
+-                        verticalArrangement = Arrangement.spacedBy(12.dp)
++                    val categoryInfo = onlineCategories.find { it.key == selectedOnlineCategory }
++                    
++                    Row(
++                        modifier = Modifier.fillMaxWidth(),
++                        horizontalArrangement = Arrangement.SpaceBetween,
++                        verticalAlignment = Alignment.CenterVertically
+                     ) {
+-                        items(onlineUsers) { targetUser ->
+-                            Card(
+-                                shape = RoundedCornerShape(16.dp),
+-                                colors = CardDefaults.cardColors(containerColor = Color.White),
+-                                modifier = Modifier
+-                                    .fillMaxWidth()
+-                                    .border(1.dp, Color.Black.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+-                                    .clickable {
+-                                        coroutineScope.launch {
+-                                            repository.createSession(
+-                                                user1Id = user.uid,
+-                                                user1Name = user.displayName,
+-                                                user2Id = targetUser.userId,
+-                                                user2Name = targetUser.userName
+-                                            )
++                        TextButton(
++                            onClick = { selectedOnlineCategory = null },
++                            contentPadding = PaddingValues(0.dp)
++                        ) {
++                            Row(verticalAlignment = Alignment.CenterVertically) {
++                                Icon(imageVector = Icons.Default.ChevronLeft, contentDescription = "Back", tint = Color.Black)
++                                Text("Lobilere Dön", color = Color.Black, fontWeight = FontWeight.Bold)
++                            }
++                        }
++                    }
++                    
++                    Spacer(modifier = Modifier.height(16.dp))
++                    
++                    Text(
++                        text = "${categoryInfo?.name ?: ""} LOBİSİ",
++                        fontSize = 32.sp,
++                        fontWeight = FontWeight.Black,
++                        color = Color.Black
++                    )
++                    Spacer(modifier = Modifier.height(4.dp))
++                    Text(
++                        text = "Aktif oyuncular listesinden rakip seçin.",
++                        fontSize = 13.sp,
++                        color = Color.Black.copy(alpha = 0.5f),
++                        fontWeight = FontWeight.Bold
++                    )
++                    Spacer(modifier = Modifier.height(24.dp))
++
++                    val lobbyUsers = onlineUsers.filter {
++                        it.status == "searching:$selectedOnlineCategory"
++                    }
++
++                    if (lobbyUsers.isEmpty()) {
++                        Box(
++                            modifier = Modifier
++                                .weight(1f)
++                                .fillMaxWidth(),
++                            contentAlignment = Alignment.Center
++                        ) {
++                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
++                                CircularProgressIndicator(color = Color.Black.copy(alpha = 0.2f))
++                                Spacer(modifier = Modifier.height(12.dp))
++                                Text(
++                                    text = "Aktif oyuncu aranıyor...",
++                                    color = Color.Black.copy(alpha = 0.4f),
++                                    fontWeight = FontWeight.Bold,
++                                    fontSize = 14.sp
++                                )
++                            }
++                        }
++                    } else {
++                        LazyColumn(
++                            modifier = Modifier.weight(1f),
++                            verticalArrangement = Arrangement.spacedBy(12.dp)
++                        ) {
++                            items(lobbyUsers) { targetUser ->
++                                Card(
++                                    shape = RoundedCornerShape(16.dp),
++                                    colors = CardDefaults.cardColors(containerColor = Color.White),
++                                    modifier = Modifier
++                                        .fillMaxWidth()
++                                        .border(1.dp, Color.Black.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
++                                        .clickable {
++                                            coroutineScope.launch {
++                                                repository.createSession(
++                                                    user1Id = user.uid,
++                                                    user1Name = user.displayName,
++                                                    user2Id = targetUser.userId,
++                                                    user2Name = targetUser.userName,
++                                                    category = selectedOnlineCategory
++                                                )
++                                            }
+                                         }
+-                                    }
+-                                    .padding(16.dp)
+-                            ) {
+-                                Row(
+-                                    modifier = Modifier.fillMaxWidth(),
+-                                    horizontalArrangement = Arrangement.SpaceBetween,
+-                                    verticalAlignment = Alignment.CenterVertically
++                                        .padding(16.dp)
+                                 ) {
+                                     Row(
+-                                        verticalAlignment = Alignment.CenterVertically,
+-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
++                                        modifier = Modifier.fillMaxWidth(),
++                                        horizontalArrangement = Arrangement.SpaceBetween,
++                                        verticalAlignment = Alignment.CenterVertically
+                                     ) {
+-                                        Box(
+-                                            contentAlignment = Alignment.Center,
+-                                            modifier = Modifier
+-                                                .size(36.dp)
+-                                                .background(Color(0xFF8B5CF6).copy(alpha = 0.1f), RoundedCornerShape(50))
++                                        Row(
++                                            verticalAlignment = Alignment.CenterVertically,
++                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                         ) {
+-                                            Text(
+-                                                text = targetUser.userName.take(1).uppercase(),
+-                                                color = Color(0xFF8B5CF6),
+-                                                fontWeight = FontWeight.Black
+-                                            )
+-                                        }
+-                                        Column {
+-                                            Text(
+-                                                text = targetUser.userName,
+-                                                fontWeight = FontWeight.Bold,
+-                                                color = Color.Black
+-                                            )
+-                                            Text(
+-                                                text = "Boşta • Hazır",
+-                                                fontSize = 11.sp,
+-                                                color = Color(0xFF10B981),
+-                                                fontWeight = FontWeight.Bold
+-                                            )
++                                            Box(
++                                                contentAlignment = Alignment.Center,
++                                                modifier = Modifier
++                                                    .size(36.dp)
++                                                    .background(Color(0xFF8B5CF6).copy(alpha = 0.1f), RoundedCornerShape(50))
++                                            ) {
++                                                Text(
++                                                    text = targetUser.userName.take(1).uppercase(),
++                                                    color = Color(0xFF8B5CF6),
++                                                    fontWeight = FontWeight.Black
++                                                )
++                                            }
++                                            Column {
++                                                Text(
++                                                    text = targetUser.userName,
++                                                    fontWeight = FontWeight.Bold,
++                                                    color = Color.Black
++                                                )
++                                                Text(
++                                                    text = "Lobide • Hazır",
++                                                    fontSize = 11.sp,
++                                                    color = Color(0xFF10B981),
++                                                    fontWeight = FontWeight.Bold
++                                                )
++                                            }
+                                         }
++                                        Icon(
++                                            imageVector = Icons.Default.PlayArrow,
++                                            contentDescription = "Oyna",
++                                            tint = Color.Black
++                                        )
+                                     }
+-                                    Icon(
+-                                        imageVector = Icons.Default.PlayArrow,
+-                                        contentDescription = "Oyna",
+-                                        tint = Color.Black
+-                                    )
+                                 }
+                             }
+                         }
+@@ -685,6 +796,60 @@ fun GameSelectionView(
+                 }
+             }
+         }
++
++        if (showPasswordPrompt) {
++            AlertDialog(
++                onDismissRequest = {
++                    showPasswordPrompt = false
++                    inputPassword = ""
++                    passwordError = false
++                },
++                title = { Text("Adult İçerik Doğrulaması", fontWeight = FontWeight.Bold) },
++                text = {
++                    Column {
++                        Text("Bu kategori +18 içerik barındırmaktadır. Devam etmek için şifreyi giriniz.")
++                        Spacer(modifier = Modifier.height(8.dp))
++                        TextField(
++                            value = inputPassword,
++                            onValueChange = { inputPassword = it },
++                            placeholder = { Text("Şifre") },
++                            singleLine = true,
++                            isError = passwordError,
++                            modifier = Modifier.fillMaxWidth()
++                        )
++                        if (passwordError) {
++                            Text("Hatalı şifre! Lütfen tekrar deneyin.", color = Color.Red, fontSize = 12.sp)
++                        }
++                    }
++                },
++                confirmButton = {
++                    Button(
++                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
++                        onClick = {
++                            if (inputPassword == "adult") {
++                                showPasswordPrompt = false
++                                selectedOnlineCategory = pendingCategory
++                                inputPassword = ""
++                                passwordError = false
++                            } else {
++                                passwordError = true
++                            }
++                        }
++                    ) {
++                        Text("GİRİŞ")
++                    }
++                },
++                dismissButton = {
++                    TextButton(onClick = {
++                        showPasswordPrompt = false
++                        inputPassword = ""
++                        passwordError = false
++                    }) {
++                        Text("İPTAL", color = Color.Black)
++                    }
++                }
++            )
++        }
+     }
+ }
+ 
+@@ -712,8 +877,12 @@ fun OnlineGameplayView(
+     val lifecycleOwner = LocalLifecycleOwner.current
+ 
+     val isMyTurn = session.currentTurn == userId
+-    val activeGame = remember(session.selectedGameId, customGames) {
+-        (Constants.GAMES + customGames).find { it.id == session.selectedGameId }
++    val activeGame = remember(session.selectedGameId, session.commonCategory, customGames) {
++        if (session.selectedGameId == "online-matchmaking-game") {
++            Game(id = "online-matchmaking-game", name = session.commonCategory.uppercase(), category = session.commonCategory)
++        } else {
++            (Constants.GAMES + customGames).find { it.id == session.selectedGameId }
++        }
+     }
+     val activeTask = remember(session.activeTaskId, customTasks) {
+         (Constants.TASKS + customTasks).find { it.id == session.activeTaskId }
+@@ -729,6 +898,7 @@ fun OnlineGameplayView(
+     var recordingTimeRemaining by remember { mutableStateOf(30) }
+     var recordingJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+     val latestFaceData = remember { mutableStateOf<FaceData?>(null) }
++    var lastDetectedTime by remember { mutableStateOf(0L) }
+     var activeFilter by remember { mutableStateOf("none") } // "none", "gozluk", "biyik", "tac", "sakal", "kulak"
+ 
+     LaunchedEffect(showCamera) {
+@@ -863,9 +1033,12 @@ fun OnlineGameplayView(
+                                          try {
+                                              cameraProvider.unbindAll()
+ 
++                                             val mainHandler = Handler(Looper.getMainLooper())
++
+                                              val imageAnalysis = ImageAnalysis.Builder()
+                                                  .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                                  .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
++                                                 .setTargetResolution(android.util.Size(640, 480))
+                                                  .build()
+ 
+                                              val faceDetector = FaceDetection.getClient(
+@@ -876,7 +1049,7 @@ fun OnlineGameplayView(
+                                                      .build()
+                                              )
+ 
+-                                             imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
++                                             imageAnalysis.setAnalyzer(Dispatchers.Default.asExecutor()) { imageProxy ->
+                                                  @OptIn(ExperimentalGetImage::class)
+                                                  val mediaImage = imageProxy.image
+                                                  if (mediaImage != null) {
+@@ -886,7 +1059,7 @@ fun OnlineGameplayView(
+                                                              val face = faces.firstOrNull()
+                                                              if (face != null) {
+                                                                  val rect = face.boundingBox
+-                                                                 latestFaceData.value = FaceData(
++                                                                 val newFaceData = FaceData(
+                                                                      centerX = rect.centerX().toFloat(),
+                                                                      centerY = rect.centerY().toFloat(),
+                                                                      width = rect.width().toFloat(),
+@@ -895,12 +1068,41 @@ fun OnlineGameplayView(
+                                                                      imageWidth = imageProxy.width,
+                                                                      imageHeight = imageProxy.height
+                                                                  )
++                                                                 mainHandler.post {
++                                                                     val prev = latestFaceData.value
++                                                                     if (prev != null && prev.rotation == newFaceData.rotation && prev.imageWidth == newFaceData.imageWidth) {
++                                                                         val dx = newFaceData.centerX - prev.centerX
++                                                                         val dy = newFaceData.centerY - prev.centerY
++                                                                         val distance = Math.sqrt((dx*dx + dy*dy).toDouble()).toFloat()
++                                                                         val alpha = if (distance > 15f) 1.0f else 0.4f
++                                                                         latestFaceData.value = FaceData(
++                                                                             centerX = prev.centerX + alpha * (newFaceData.centerX - prev.centerX),
++                                                                             centerY = prev.centerY + alpha * (newFaceData.centerY - prev.centerY),
++                                                                             width = prev.width + alpha * (newFaceData.width - prev.width),
++                                                                             height = prev.height + alpha * (newFaceData.height - prev.height),
++                                                                             rotation = newFaceData.rotation,
++                                                                             imageWidth = newFaceData.imageWidth,
++                                                                             imageHeight = newFaceData.imageHeight
++                                                                         )
++                                                                     } else {
++                                                                         latestFaceData.value = newFaceData
++                                                                     }
++                                                                     lastDetectedTime = System.currentTimeMillis()
++                                                                 }
+                                                              } else {
+-                                                                 latestFaceData.value = null
++                                                                 mainHandler.post {
++                                                                     if (System.currentTimeMillis() - lastDetectedTime > 350L) {
++                                                                         latestFaceData.value = null
++                                                                     }
++                                                                 }
+                                                              }
+                                                          }
+                                                          .addOnFailureListener {
+-                                                             latestFaceData.value = null
++                                                             mainHandler.post {
++                                                                 if (System.currentTimeMillis() - lastDetectedTime > 350L) {
++                                                                     latestFaceData.value = null
++                                                                 }
++                                                             }
+                                                          }
+                                                          .addOnCompleteListener {
+                                                              imageProxy.close()
+@@ -910,7 +1112,6 @@ fun OnlineGameplayView(
+                                                  }
+                                              }
+ 
+-                                             val mainHandler = Handler(Looper.getMainLooper())
+                                              val errorConsumer = androidx.core.util.Consumer<Throwable> { error ->
+                                                  error.printStackTrace()
+                                              }
+@@ -929,35 +1130,40 @@ fun OnlineGameplayView(
+                                                  val face = latestFaceData.value
+                                                  
+                                                  if (face != null && filter != "none") {
+-                                                     val normCenterX = face.centerX / face.imageWidth
+-                                                     val normCenterY = face.centerY / face.imageHeight
+-                                                     val normWidth = face.width / face.imageWidth
+-                                                     val normHeight = face.height / face.imageHeight
+-                                                     
+-                                                     val viewW = previewView.width.toFloat()
+-                                                     val viewH = previewView.height.toFloat()
+-                                                     
+-                                                     var cx = 0f
+-                                                     var cy = 0f
+-                                                     var faceW = 0f
+-                                                     var faceH = 0f
+-                                                     
+-                                                     if (face.rotation == 270) {
+-                                                         cx = (1f - normCenterY) * viewW
+-                                                         cy = normCenterX * viewH
+-                                                         faceW = normHeight * viewW
+-                                                         faceH = normWidth * viewH
+-                                                     } else if (face.rotation == 90) {
+-                                                         cx = (1f - normCenterY) * viewW
+-                                                         cy = normCenterX * viewH
+-                                                         faceW = normHeight * viewW
+-                                                         faceH = normWidth * viewH
+-                                                     } else {
+-                                                         cx = normCenterX * viewW
+-                                                         cy = normCenterY * viewH
+-                                                         faceW = normWidth * viewW
+-                                                         faceH = normHeight * viewH
+-                                                     }
++                                                      val normCenterX = face.centerX / face.imageWidth.toFloat()
++                                                      val normCenterY = face.centerY / face.imageHeight.toFloat()
++                                                      val normWidth = face.width / face.imageWidth.toFloat()
++                                                      val normHeight = face.height / face.imageHeight.toFloat()
++                                                      
++                                                      val viewW = previewView.width.toFloat()
++                                                      val viewH = previewView.height.toFloat()
++                                                      
++                                                      val sensorRotated = (face.rotation == 90 || face.rotation == 270)
++                                                      val frameW = if (sensorRotated) face.imageHeight.toFloat() else face.imageWidth.toFloat()
++                                                      val frameH = if (sensorRotated) face.imageWidth.toFloat() else face.imageHeight.toFloat()
++                                                      
++                                                      val scale = Math.max(viewW / frameW, viewH / frameH)
++                                                      val previewW = frameW * scale
++                                                      val previewH = frameH * scale
++                                                      val offsetX = (viewW - previewW) / 2f
++                                                      val offsetY = (viewH - previewH) / 2f
++                                                      
++                                                      var cx = 0f
++                                                      var cy = 0f
++                                                      var faceW = 0f
++                                                      var faceH = 0f
++                                                      
++                                                      if (sensorRotated) {
++                                                          cx = (1f - normCenterY) * previewW + offsetX
++                                                          cy = normCenterX * previewH + offsetY
++                                                          faceW = normHeight * previewW
++                                                          faceH = normWidth * previewH
++                                                      } else {
++                                                          cx = normCenterX * previewW + offsetX
++                                                          cy = normCenterY * previewH + offsetY
++                                                          faceW = normWidth * previewW
++                                                          faceH = normHeight * previewH
++                                                      }
+                                                      
+                                                      val sensorToUi = previewView.sensorToViewTransform
+                                                      if (sensorToUi != null) {
+@@ -1001,12 +1207,13 @@ fun OnlineGameplayView(
+                                                              val lensW = faceW * 0.32f
+                                                              val lensH = faceH * 0.22f
+                                                              val spacing = faceW * 0.08f
++                                                             val eyeY = cy - faceH * 0.12f
+                                                              
+-                                                             canvas.drawRoundRect(cx - spacing/2 - lensW, cy - lensH/2, cx - spacing/2, cy + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+-                                                             canvas.drawCircle(cx - spacing/2 - lensW*0.7f, cy - lensH*0.2f, lensW*0.08f, highlightPaint)
+-                                                             canvas.drawRoundRect(cx + spacing/2, cy - lensH/2, cx + spacing/2 + lensW, cy + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
+-                                                             canvas.drawCircle(cx + spacing/2 + lensW*0.3f, cy - lensH*0.2f, lensW*0.08f, highlightPaint)
+-                                                             canvas.drawLine(cx - spacing/2, cy, cx + spacing/2, cy, bridgePaint)
++                                                             canvas.drawRoundRect(cx - spacing/2 - lensW, eyeY - lensH/2, cx - spacing/2, eyeY + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
++                                                             canvas.drawCircle(cx - spacing/2 - lensW*0.7f, eyeY - lensH*0.2f, lensW*0.08f, highlightPaint)
++                                                             canvas.drawRoundRect(cx + spacing/2, eyeY - lensH/2, cx + spacing/2 + lensW, eyeY + lensH/2, lensW*0.3f, lensW*0.3f, glassPaint)
++                                                             canvas.drawCircle(cx + spacing/2 + lensW*0.3f, eyeY - lensH*0.2f, lensW*0.08f, highlightPaint)
++                                                             canvas.drawLine(cx - spacing/2, eyeY, cx + spacing/2, eyeY, bridgePaint)
+                                                          }
+                                                          "biyik" -> {
+                                                              val mustachePaint = Paint().apply {
+@@ -1983,3 +2190,98 @@ suspend fun saveLocallyRecordedVideo(
+         }
+     }
+ }
++
++data class OnlineCategoryInfo(
++    val name: String,
++    val key: String,
++    val color: Color,
++    val iconResId: Int
++)
++
++@Composable
++fun OnlineCategoryCard(
++    category: OnlineCategoryInfo,
++    playerCount: Int,
++    modifier: Modifier = Modifier,
++    onClick: () -> Unit
++) {
++    val isLocked = category.key == "adult"
++    
++    Box(
++        modifier = modifier
++            .aspectRatio(1.1f)
++            .clip(RoundedCornerShape(24.dp))
++            .background(category.color)
++            .clickable { onClick() }
++            .padding(16.dp)
++    ) {
++        Column(
++            modifier = Modifier.fillMaxSize(),
++            horizontalAlignment = Alignment.CenterHorizontally,
++            verticalArrangement = Arrangement.SpaceBetween
++        ) {
++            Box(
++                modifier = Modifier
++                    .size(64.dp)
++                    .clip(RoundedCornerShape(16.dp))
++                    .background(Color.White.copy(alpha = 0.15f)),
++                contentAlignment = Alignment.Center
++            ) {
++                androidx.compose.foundation.Image(
++                    painter = androidx.compose.ui.res.painterResource(id = category.iconResId),
++                    contentDescription = null,
++                    modifier = Modifier.size(48.dp)
++                )
++            }
++            
++            Row(
++                modifier = Modifier.fillMaxWidth(),
++                horizontalArrangement = Arrangement.Center,
++                verticalAlignment = Alignment.CenterVertically
++            ) {
++                Text(
++                    text = category.name,
++                    fontSize = 16.sp,
++                    fontWeight = FontWeight.Black,
++                    color = if (category.key == "bilgi") Color.Black else Color.White,
++                    textAlign = TextAlign.Center
++                )
++                if (isLocked) {
++                    Spacer(modifier = Modifier.width(4.dp))
++                    Icon(
++                        imageVector = Icons.Default.Lock,
++                        contentDescription = "Locked",
++                        tint = Color.White,
++                        modifier = Modifier.size(16.dp)
++                    )
++                }
++            }
++        }
++
++        // Online player count badge in bottom right
++        Box(
++            modifier = Modifier
++                .align(Alignment.BottomEnd)
++                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
++                .padding(horizontal = 8.dp, vertical = 4.dp)
++        ) {
++            Row(
++                verticalAlignment = Alignment.CenterVertically,
++                horizontalArrangement = Arrangement.spacedBy(4.dp)
++            ) {
++                Box(
++                    modifier = Modifier
++                        .size(6.dp)
++                        .background(Color(0xFF10B981), CircleShape)
++                )
++                Text(
++                    text = playerCount.toString(),
++                    color = Color.White,
++                    fontSize = 10.sp,
++                    fontWeight = FontWeight.Bold
++                )
++            }
++        }
++    }
++}
++

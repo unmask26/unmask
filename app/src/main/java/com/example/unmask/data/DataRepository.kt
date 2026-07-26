@@ -1077,6 +1077,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
     override suspend fun publishPublicVideo(gameName: String, taskText: String, filterName: String, videoUri: Uri): String {
         val user = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
+        val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, videoUri)
+        if (nsfwResult.isNSFW) {
+            throw IllegalArgumentException("⚠️ Videonuz müstehcen/topluluk kurallarına aykırı içerik barındırdığı için paylaşılamaz!")
+        }
         val videoUrl = uploadOnlineVideo("public_feed", videoUri)
         val docId = UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
