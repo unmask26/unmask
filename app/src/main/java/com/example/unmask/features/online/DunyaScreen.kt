@@ -100,7 +100,7 @@ fun DunyaScreen(
         return
     }
 
-    val user = currentUser!!
+    val user = currentUser ?: return
     
     var selectedOnlineCategory by remember { mutableStateOf<String?>(null) }
     var pendingCategory by remember { mutableStateOf<String?>(null) }
@@ -1778,11 +1778,12 @@ fun OnlineGameplayView(
                                                     val filterName = if (activeFilter == "none") "" else {
                                                         com.example.unmask.features.ar.PartyMaskEngine.PARTY_MASKS.find { it.id == activeFilter }?.name ?: activeFilter
                                                     }
+                                                    val uriToPublish = recordedUri ?: return@launch
                                                     repository.publishPublicVideo(
                                                         gameName = activeGame.name,
                                                         taskText = currentTaskText,
                                                         filterName = filterName,
-                                                        videoUri = recordedUri!!
+                                                        videoUri = uriToPublish
                                                     )
                                                     isPublishedToWorld = true
                                                     withContext(Dispatchers.Main) {
@@ -1824,9 +1825,10 @@ fun OnlineGameplayView(
                                     Button(
                                         onClick = {
                                             coroutineScope.launch {
+                                                val uriToSave = recordedUri ?: return@launch
                                                 saveLocallyRecordedVideo(
                                                     context = context,
-                                                    recordedUri = recordedUri!!,
+                                                    recordedUri = uriToSave,
                                                     repository = repository,
                                                     gameName = activeGame.name,
                                                     gameId = activeGame.id,
@@ -2082,10 +2084,13 @@ fun OnlineGameplayView(
                                 AndroidView(
                                     factory = { ctx ->
                                         VideoView(ctx).apply {
-                                            setVideoPath(localVideoPath!!)
-                                            setOnPreparedListener { start() }
-                                            setOnCompletionListener {
-                                                videoFinished = true
+                                            val vPath = localVideoPath
+                                            if (vPath != null) {
+                                                setVideoPath(vPath)
+                                                setOnPreparedListener { start() }
+                                                setOnCompletionListener {
+                                                    videoFinished = true
+                                                }
                                             }
                                         }
                                     },
@@ -2634,7 +2639,7 @@ fun loadAndCleanBitmap(context: Context, name: String): android.graphics.Bitmap?
         }
         
         while (!queue.isEmpty()) {
-            val idx = queue.poll()!!
+            val idx = queue.poll() ?: break
             val px = idx % width
             val py = idx / width
             
