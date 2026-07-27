@@ -139,7 +139,7 @@ fun LoginScreen(
             // UNMASK Title Box with border effect
             Box(
                 modifier = Modifier
-                    .offset(y = bounceY.dp)
+                    .offset { androidx.compose.ui.unit.IntOffset(0, bounceY.dp.roundToPx()) }
                     .padding(8.dp)
             ) {
                 Text(
