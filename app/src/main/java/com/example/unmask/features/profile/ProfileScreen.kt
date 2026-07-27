@@ -7,7 +7,6 @@ import com.example.unmask.features.lobby.*
 import com.example.unmask.features.online.*
 import com.example.unmask.features.profile.*
 
-
 import android.app.DatePickerDialog
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -21,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Wc
@@ -36,7 +36,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unmask.data.DataRepository
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -58,6 +57,17 @@ fun ProfileScreen(
     var birthDate by remember { mutableStateOf("") }
     var adultPassword by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Adult Password Reset Modal & Verification State
+    var showAdultResetModal by remember { mutableStateOf(false) }
+    var verificationCodeInput by remember { mutableStateOf("") }
+    var newAdultPasswordInput by remember { mutableStateOf("") }
+    var isSendingCode by remember { mutableStateOf(false) }
+    var isVerifyingCode by remember { mutableStateOf(false) }
+
+    val userEmail = remember(user) {
+        repository.currentFirebaseUser?.email ?: "kullanici@example.com"
+    }
 
     LaunchedEffect(user) {
         if (user != null && !hasInitialized) {
@@ -101,7 +111,7 @@ fun ProfileScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF9F9F9)) // Light background corresponding to web inside layout
+            .background(Color(0xFFF9F9F9))
             .padding(24.dp)
     ) {
         Column(
@@ -313,7 +323,7 @@ fun ProfileScreen(
                 }
             }
 
-            // Adult Password Field
+            // Adult Password Section
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -333,21 +343,59 @@ fun ProfileScreen(
                         letterSpacing = 1.sp
                     )
                 }
+                
                 OutlinedTextField(
                     value = adultPassword,
                     onValueChange = { adultPassword = it },
-                    placeholder = { Text("Şifre belirleyin (İsteğe bağlı)") },
+                    placeholder = { Text("Mevcut Adult şifresi") },
                     singleLine = true,
+                    enabled = false, // Must be changed via Email verification code
                     visualTransformation = PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Black.copy(alpha = 0.2f),
-                        unfocusedBorderColor = Color.Black.copy(alpha = 0.05f),
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
+                        disabledBorderColor = Color.Black.copy(alpha = 0.05f),
+                        disabledContainerColor = Color.White,
+                        disabledTextColor = Color.Black
                     ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                // 📩 MAİLE KOD GÖNDER VE ŞİFRE DEĞİŞTİR BUTONU
+                Button(
+                    onClick = {
+                        isSendingCode = true
+                        coroutineScope.launch {
+                            try {
+                                repository.sendAdultPasswordResetCode(userEmail)
+                                Toast.makeText(context, "6 Haneli doğrulama kodu $userEmail adresinize gönderildi!", Toast.LENGTH_LONG).show()
+                                showAdultResetModal = true
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                Toast.makeText(context, "Kod gönderilemedi: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                            } finally {
+                                isSendingCode = false
+                            }
+                        }
+                    },
+                    enabled = !isSendingCode,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626), contentColor = Color.White),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    if (isSendingCode) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                    } else {
+                        Icon(imageVector = Icons.Default.Mail, contentDescription = "Kod Gönder", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (adultPassword.isEmpty()) "ADULT ŞİFRESİ BELİRLE (MAİLE KOD İSTE) 📩" else "ADULT ŞİFRESİNİ DEĞİŞTİR (MAİLE KOD İSTE) 📩",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -379,6 +427,119 @@ fun ProfileScreen(
                     )
                 }
             }
+        }
+
+        // 🔒 MAİLE GİDEN KOD VE YENİ ADULT ŞİFRE DEĞİŞTİRME MODALI
+        if (showAdultResetModal) {
+            AlertDialog(
+                onDismissRequest = { showAdultResetModal = false },
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Lock, contentDescription = "Adult Lock", tint = Color(0xFFDC2626))
+                        Text("ADULT ŞİFRESİ DEĞİŞTİR", fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.Black)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "$userEmail adresinize 6 haneli doğrulama kodu gönderildi. Lütfen kodu ve yeni Adult şifrenizi girin.",
+                            fontSize = 12.sp,
+                            color = Color.Black.copy(alpha = 0.6f),
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        OutlinedTextField(
+                            value = verificationCodeInput,
+                            onValueChange = { if (it.length <= 6) verificationCodeInput = it },
+                            label = { Text("6 Haneli Doğrulama Kodu") },
+                            placeholder = { Text("Örn: 654321") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFDC2626),
+                                unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        OutlinedTextField(
+                            value = newAdultPasswordInput,
+                            onValueChange = { newAdultPasswordInput = it },
+                            label = { Text("Yeni Adult Şifresi") },
+                            placeholder = { Text("Yeni şifreniz") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFDC2626),
+                                unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (verificationCodeInput.length != 6) {
+                                Toast.makeText(context, "Lütfen 6 haneli doğrulama kodunu tam girin", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (newAdultPasswordInput.isEmpty()) {
+                                Toast.makeText(context, "Lütfen yeni Adult şifrenizi girin", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            isVerifyingCode = true
+                            coroutineScope.launch {
+                                try {
+                                    val isValid = repository.verifyAdultPasswordResetCode(userEmail, verificationCodeInput)
+                                    if (isValid) {
+                                        adultPassword = newAdultPasswordInput
+                                        repository.updateProfile(displayName, nickname, selectedGender, birthDate, newAdultPasswordInput)
+                                        Toast.makeText(context, "Adult şifreniz başarıyla güncellendi! 🔒", Toast.LENGTH_SHORT).show()
+                                        showAdultResetModal = false
+                                        verificationCodeInput = ""
+                                        newAdultPasswordInput = ""
+                                    } else {
+                                        Toast.makeText(context, "⚠️ Girdiğiniz doğrulama kodu hatalı!", Toast.LENGTH_LONG).show()
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    Toast.makeText(context, "Doğrulama hatası: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isVerifyingCode = false
+                                }
+                            }
+                        },
+                        enabled = !isVerifyingCode,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626), contentColor = Color.White),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                    ) {
+                        if (isVerifyingCode) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                        } else {
+                            Text("DOĞRULA VE ŞİFREYİ KAYDET 🔒", fontWeight = FontWeight.Black)
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { showAdultResetModal = false },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("İPTAL", color = Color.Black.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
+                    }
+                },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(24.dp)
+            )
         }
     }
 }

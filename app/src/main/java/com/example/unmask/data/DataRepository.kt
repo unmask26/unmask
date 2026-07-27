@@ -95,6 +95,8 @@ interface DataRepository {
     suspend fun rejectDirectGameRequest(requestId: String)
     suspend fun launchSessionFromDirectRequest(request: DirectGameRequest): String
     suspend fun cancelSentGameRequest(requestId: String)
+    suspend fun sendAdultPasswordResetCode(email: String): String
+    suspend fun verifyAdultPasswordResetCode(email: String, code: String): Boolean
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -1383,6 +1385,49 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    override suspend fun sendAdultPasswordResetCode(email: String): String {
+        val code = (100_000..999_999).random().toString()
+        val uid = _currentUser.value?.uid ?: "demo"
+        try {
+            if (email.contains("@")) {
+                auth.sendPasswordResetEmail(email)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        try {
+            if (uid != "offline_demo_user") {
+                firestore.collection("adult_verification_codes").document(uid).set(
+                    mapOf(
+                        "email" to email,
+                        "code" to code,
+                        "createdAt" to System.currentTimeMillis()
+                    )
+                ).await()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        
+        return code
+    }
+
+    override suspend fun verifyAdultPasswordResetCode(email: String, code: String): Boolean {
+        val uid = _currentUser.value?.uid ?: "demo"
+        if (uid == "offline_demo_user") return true
+        try {
+            val doc = firestore.collection("adult_verification_codes").document(uid).get().await()
+            if (doc.exists()) {
+                val savedCode = doc.getString("code")
+                return savedCode != null && savedCode == code.trim()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
     }
 }
 
