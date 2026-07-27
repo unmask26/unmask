@@ -369,7 +369,7 @@ fun ProfileScreen(
                             try {
                                 val code = repository.sendAdultPasswordResetCode(userEmail)
                                 lastSentCode = code
-                                Toast.makeText(context, "unmask adult şifre değişikliği talebiniz alındı. $code kodu ilgili yere yazınız.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Doğrulama kodu $userEmail adresinize e-posta olarak gönderildi!", Toast.LENGTH_LONG).show()
                                 showAdultResetModal = true
                             } catch (e: Exception) {
                                 e.printStackTrace()
@@ -447,7 +447,7 @@ fun ProfileScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            text = "unmask adult şifre değişikliği talebiniz alındı. ${if (lastSentCode.isNotEmpty()) lastSentCode else "******"} kodu ilgili yere yazınız.",
+                            text = "unmask adult şifre değişikliği talebiniz alındı. ****** kodu ilgili yere yazınız.",
                             fontSize = 13.sp,
                             color = Color(0xFFDC2626),
                             fontWeight = FontWeight.Bold
