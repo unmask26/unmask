@@ -1390,23 +1390,28 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     override suspend fun sendAdultPasswordResetCode(email: String): String {
         val code = (100_000..999_999).random().toString()
         val uid = _currentUser.value?.uid ?: "demo"
-        try {
-            if (email.contains("@")) {
-                auth.sendPasswordResetEmail(email)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        
         val emailMessage = "unmask adult şifre değişikliği talebiniz alındı. $code kodu ilgili yere yazınız."
+        
         try {
             if (uid != "offline_demo_user") {
+                // Save verification code record
                 firestore.collection("adult_verification_codes").document(uid).set(
                     mapOf(
                         "email" to email,
                         "code" to code,
                         "emailMessage" to emailMessage,
                         "createdAt" to System.currentTimeMillis()
+                    )
+                ).await()
+
+                // Trigger mail queue without link
+                firestore.collection("mail").add(
+                    mapOf(
+                        "to" to listOf(email),
+                        "message" to mapOf(
+                            "subject" to "Unmask Adult Şifre Değişikliği",
+                            "text" to emailMessage
+                        )
                     )
                 ).await()
             }
