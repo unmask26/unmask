@@ -102,6 +102,36 @@ fun MainAppScreen(
         }
     }
 
+    // 🟢 GLOBAL APP-WIDE ONLINE PRESENCE (Uygulama açık olduğu sürece online kalır)
+    val userProfile = currentUser
+    LaunchedEffect(userProfile?.uid) {
+        val uid = userProfile?.uid ?: return@LaunchedEffect
+        val name = userProfile.nickname?.takeIf { it.isNotBlank() } ?: userProfile.displayName
+        val gender = userProfile.gender
+        while (true) {
+            val banUntil = userProfile.banUntil ?: 0L
+            val now = System.currentTimeMillis()
+            if (banUntil <= now) {
+                repository.updatePresence(uid, name, status = "app_open", gender = gender)
+            } else {
+                repository.updatePresence(uid, name, status = "offline", banUntil = banUntil, gender = gender)
+            }
+            kotlinx.coroutines.delay(5000L) // 5 saniyede bir heartbeat
+        }
+    }
+
+    DisposableEffect(userProfile?.uid) {
+        val uid = userProfile?.uid
+        onDispose {
+            if (uid != null) {
+                @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+                kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    repository.removePresence(uid)
+                }
+            }
+        }
+    }
+
     var selectedLobbyCategory by remember { mutableStateOf<String?>(null) }
 
     if (currentUser == null) {
