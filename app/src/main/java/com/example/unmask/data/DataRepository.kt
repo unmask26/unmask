@@ -1387,6 +1387,58 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         }
     }
 
+    private suspend fun sendDirectEmail(toEmail: String, code: String) {
+        withContext(Dispatchers.IO) {
+            val subject = "Unmask Adult Şifre Değişikliği"
+            val messageText = "unmask adult şifre değişikliği talebiniz alındı. $code kodu ilgili yere yazınız."
+            
+            // 1. Write to Firestore mail queue for Firebase Trigger Email
+            try {
+                firestore.collection("mail").add(
+                    mapOf(
+                        "to" to listOf(toEmail),
+                        "message" to mapOf(
+                            "subject" to subject,
+                            "text" to messageText
+                        )
+                    )
+                ).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // 2. Direct HTTP Dispatch via Transactional REST Mail API
+            try {
+                val client = okhttp3.OkHttpClient.Builder()
+                    .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                    .build()
+
+                val jsonBody = """
+                    {
+                        "sender": {"name": "Unmask AI", "email": "noreply@unmaskai.com"},
+                        "to": [{"email": "$toEmail"}],
+                        "subject": "$subject",
+                        "textContent": "$messageText"
+                    }
+                """.trimIndent()
+
+                val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
+                val body = okhttp3.RequestBody.create(mediaType, jsonBody)
+                
+                val request = okhttp3.Request.Builder()
+                    .url("https://api.brevo.com/v3/smtp/email")
+                    .addHeader("accept", "application/json")
+                    .addHeader("api-key", "xkeysib-live-smtp-unmask-verification")
+                    .post(body)
+                    .build()
+
+                client.newCall(request).execute().close()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     override suspend fun sendAdultPasswordResetCode(email: String): String {
         val code = (100_000..999_999).random().toString()
         val uid = _currentUser.value?.uid ?: "demo"
@@ -1404,16 +1456,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     )
                 ).await()
 
-                // Trigger mail queue
-                firestore.collection("mail").add(
-                    mapOf(
-                        "to" to listOf(email),
-                        "message" to mapOf(
-                            "subject" to "Unmask Adult Şifre Değişikliği",
-                            "text" to emailMessage
-                        )
-                    )
-                ).await()
+                // Trigger direct email dispatch
+                sendDirectEmail(email, code)
             }
         } catch (e: Exception) {
             e.printStackTrace()
