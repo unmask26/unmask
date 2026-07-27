@@ -83,26 +83,30 @@ fun ProfileScreen(
     var isVerifying by remember { mutableStateOf(false) }
 
     LaunchedEffect(user) {
-        if (user != null && !hasInitialized) {
-            displayName = user?.displayName ?: ""
-            nickname = user?.nickname ?: ""
-            selectedGender = user?.gender ?: "Erkek"
-            birthDate = user?.birthDate ?: ""
-            adultPassword = user?.adultPassword ?: ""
-            // Load saved security answers if any
-            val savedAnswers = user?.securityAnswers ?: emptyMap()
-            if (savedAnswers.isNotEmpty()) {
-                val keys = savedAnswers.keys.toList()
-                if (keys.isNotEmpty()) {
-                    selectedQuestion1 = keys[0]
-                    answer1 = savedAnswers[keys[0]] ?: ""
+        val u = user
+        if (u != null) {
+            if (!hasInitialized || birthDate.isEmpty()) {
+                displayName = u.displayName
+                nickname = u.nickname ?: ""
+                selectedGender = u.gender
+                birthDate = u.birthDate
+                adultPassword = u.adultPassword ?: ""
+                val savedAnswers = u.securityAnswers
+                if (savedAnswers.isNotEmpty()) {
+                    val keys = savedAnswers.keys.toList()
+                    if (keys.isNotEmpty()) {
+                        selectedQuestion1 = keys[0]
+                        answer1 = savedAnswers[keys[0]] ?: ""
+                    }
+                    if (keys.size > 1) {
+                        selectedQuestion2 = keys[1]
+                        answer2 = savedAnswers[keys[1]] ?: ""
+                    }
                 }
-                if (keys.size > 1) {
-                    selectedQuestion2 = keys[1]
-                    answer2 = savedAnswers[keys[1]] ?: ""
+                if (u.birthDate.isNotEmpty()) {
+                    hasInitialized = true
                 }
             }
-            hasInitialized = true
         }
     }
 

@@ -381,8 +381,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             false
         }
 
-        val updatedProfile = UserProfile(
-            uid = uid,
+        val updatedProfile = current.copy(
             displayName = displayName,
             nickname = nickname,
             gender = gender,
