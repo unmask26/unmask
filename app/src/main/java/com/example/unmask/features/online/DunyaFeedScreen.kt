@@ -534,9 +534,10 @@ fun CommentsSheetContent(
     
     Column(
         modifier = Modifier
-            .fillMaxHeight(0.65f)
+            .fillMaxHeight(0.75f)
             .fillMaxWidth()
-            .padding(bottom = WindowInsets.ime.asPaddingValues().calculateBottomPadding())
+            .imePadding()
+            .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -646,9 +647,7 @@ fun CommentsSheetContent(
         
         // Input text field
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding(),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
