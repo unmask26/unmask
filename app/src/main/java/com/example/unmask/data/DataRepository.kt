@@ -1398,12 +1398,14 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             e.printStackTrace()
         }
         
+        val emailMessage = "unmask adult şifre değişikliği talebiniz alındı. $code kodu ilgili yere yazınız."
         try {
             if (uid != "offline_demo_user") {
                 firestore.collection("adult_verification_codes").document(uid).set(
                     mapOf(
                         "email" to email,
                         "code" to code,
+                        "emailMessage" to emailMessage,
                         "createdAt" to System.currentTimeMillis()
                     )
                 ).await()

@@ -445,9 +445,9 @@ fun ProfileScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            text = "$userEmail adresinize 6 haneli doğrulama kodu gönderildi. Lütfen kodu ve yeni Adult şifrenizi girin.",
+                            text = "unmask adult şifre değişikliği talebiniz alındı. E-posta adresinize gönderilen 6 haneli kodu ve yeni Adult şifrenizi ilgili yere yazınız.",
                             fontSize = 12.sp,
-                            color = Color.Black.copy(alpha = 0.6f),
+                            color = Color.Black.copy(alpha = 0.7f),
                             fontWeight = FontWeight.Medium
                         )
 
