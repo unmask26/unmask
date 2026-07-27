@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Mail
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Wc
@@ -38,6 +37,16 @@ import androidx.compose.ui.unit.sp
 import com.example.unmask.data.DataRepository
 import kotlinx.coroutines.launch
 import java.util.Calendar
+
+// Güvenlik soruları listesi
+val SECURITY_QUESTIONS = listOf(
+    "İlk öğretmeninin adı nedir?",
+    "İlk evcil hayvanının ismi nedir?",
+    "Hatırladığın okul numaran nedir?",
+    "Annenin kızlık soyadı nedir?",
+    "Doğduğun şehir neresidir?",
+    "En sevdiğin çocukluk oyuncağı neydi?"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,17 +67,20 @@ fun ProfileScreen(
     var adultPassword by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Adult Password Reset Modal & Verification State
-    var showAdultResetModal by remember { mutableStateOf(false) }
-    var verificationCodeInput by remember { mutableStateOf("") }
-    var newAdultPasswordInput by remember { mutableStateOf("") }
-    var isSendingCode by remember { mutableStateOf(false) }
-    var isVerifyingCode by remember { mutableStateOf(false) }
-    var lastSentCode by remember { mutableStateOf("") }
+    // Security questions state
+    var selectedQuestion1 by remember { mutableStateOf(SECURITY_QUESTIONS[0]) }
+    var answer1 by remember { mutableStateOf("") }
+    var selectedQuestion2 by remember { mutableStateOf(SECURITY_QUESTIONS[1]) }
+    var answer2 by remember { mutableStateOf("") }
+    var showQ1Dropdown by remember { mutableStateOf(false) }
+    var showQ2Dropdown by remember { mutableStateOf(false) }
 
-    val userEmail = remember(user) {
-        repository.currentFirebaseUser?.email ?: "kullanici@example.com"
-    }
+    // Adult password change via security question
+    var showChangeAdultPasswordModal by remember { mutableStateOf(false) }
+    var challengeQuestion by remember { mutableStateOf("") }
+    var challengeAnswer by remember { mutableStateOf("") }
+    var newAdultPasswordInput by remember { mutableStateOf("") }
+    var isVerifying by remember { mutableStateOf(false) }
 
     LaunchedEffect(user) {
         if (user != null && !hasInitialized) {
@@ -77,6 +89,19 @@ fun ProfileScreen(
             selectedGender = user?.gender ?: "Erkek"
             birthDate = user?.birthDate ?: ""
             adultPassword = user?.adultPassword ?: ""
+            // Load saved security answers if any
+            val savedAnswers = user?.securityAnswers ?: emptyMap()
+            if (savedAnswers.isNotEmpty()) {
+                val keys = savedAnswers.keys.toList()
+                if (keys.isNotEmpty()) {
+                    selectedQuestion1 = keys[0]
+                    answer1 = savedAnswers[keys[0]] ?: ""
+                }
+                if (keys.size > 1) {
+                    selectedQuestion2 = keys[1]
+                    answer2 = savedAnswers[keys[1]] ?: ""
+                }
+            }
             hasInitialized = true
         }
     }
@@ -94,11 +119,21 @@ fun ProfileScreen(
             Toast.makeText(context, "Lütfen doğum tarihinizi seçin", Toast.LENGTH_SHORT).show()
             return
         }
-        
+        if (answer1.trim().isEmpty() || answer2.trim().isEmpty()) {
+            Toast.makeText(context, "Lütfen her iki güvenlik sorusunu da cevaplayın", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (selectedQuestion1 == selectedQuestion2) {
+            Toast.makeText(context, "Lütfen farklı iki güvenlik sorusu seçin", Toast.LENGTH_SHORT).show()
+            return
+        }
         coroutineScope.launch {
             isLoading = true
             try {
                 repository.updateProfile(displayName, nickname, selectedGender, birthDate, adultPassword)
+                repository.saveSecurityAnswers(
+                    mapOf(selectedQuestion1 to answer1, selectedQuestion2 to answer2)
+                )
                 Toast.makeText(context, "Profil kaydedildi!", Toast.LENGTH_SHORT).show()
                 onProfileSaved()
             } catch (e: Exception) {
@@ -129,142 +164,34 @@ fun ProfileScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(top = 16.dp)
             ) {
-                IconButton(
-                    onClick = onProfileSaved,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ChevronLeft,
-                        contentDescription = "Back",
-                        tint = Color.Black,
-                        modifier = Modifier.size(28.dp)
-                    )
+                IconButton(onClick = onProfileSaved, modifier = Modifier.size(36.dp)) {
+                    Icon(imageVector = Icons.Default.ChevronLeft, contentDescription = "Back", tint = Color.Black, modifier = Modifier.size(28.dp))
                 }
-                Text(
-                    text = "PROFİL DÜZENLE",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.Black
-                )
+                Text(text = "PROFİL DÜZENLE", fontSize = 28.sp, fontWeight = FontWeight.Black, color = Color.Black)
             }
 
             // Name Field
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Name",
-                        tint = Color.Black.copy(alpha = 0.4f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "AD SOYAD",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black.copy(alpha = 0.4f),
-                        letterSpacing = 1.sp
-                    )
-                }
-                OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { displayName = it },
-                    placeholder = { Text("Adınızı girin") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Black.copy(alpha = 0.2f),
-                        unfocusedBorderColor = Color.Black.copy(alpha = 0.05f),
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            ProfileTextField(label = "AD SOYAD", value = displayName, onValueChange = { displayName = it }, placeholder = "Adınızı girin")
 
             // Nickname Field
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Nickname",
-                        tint = Color.Black.copy(alpha = 0.4f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "TAKMA AD (NICKNAME)",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black.copy(alpha = 0.4f),
-                        letterSpacing = 1.sp
-                    )
-                }
-                OutlinedTextField(
-                    value = nickname,
-                    onValueChange = { nickname = it },
-                    placeholder = { Text("Takma adınızı girin") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Black.copy(alpha = 0.2f),
-                        unfocusedBorderColor = Color.Black.copy(alpha = 0.05f),
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            ProfileTextField(label = "TAKMA AD (NICKNAME)", value = nickname, onValueChange = { nickname = it }, placeholder = "Takma adınızı girin")
 
             // Gender Field
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Wc,
-                        contentDescription = "Gender",
-                        tint = Color.Black.copy(alpha = 0.4f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "CİNSİYET",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black.copy(alpha = 0.4f),
-                        letterSpacing = 1.sp
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+                ProfileLabel(text = "CİNSİYET")
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf("Erkek", "Kadın", "Diğer").forEach { gender ->
                         val isSelected = selectedGender == gender
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .weight(1f)
-                                .height(56.dp)
+                                .weight(1f).height(56.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(if (isSelected) Color.Black else Color.White)
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isSelected) Color.Black else Color.Black.copy(alpha = 0.05f),
-                                    shape = RoundedCornerShape(16.dp)
-                                )
+                                .border(1.dp, if (isSelected) Color.Black else Color.Black.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
                                 .clickable { selectedGender = gender }
                         ) {
-                            Text(
-                                text = gender,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color.White else Color.Black
-                            )
+                            Text(text = gender, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else Color.Black)
                         }
                     }
                 }
@@ -272,26 +199,7 @@ fun ProfileScreen(
 
             // Birth Date Field
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CalendarMonth,
-                        contentDescription = "BirthDate",
-                        tint = Color.Black.copy(alpha = 0.4f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "DOĞUM TARİHİ",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black.copy(alpha = 0.4f),
-                        letterSpacing = 1.sp
-                    )
-                }
-
-                // Date Picker Dialog trigger
+                ProfileLabel(text = "DOĞUM TARİHİ")
                 val calendar = Calendar.getInstance()
                 val datePickerDialog = DatePickerDialog(
                     context,
@@ -304,16 +212,11 @@ fun ProfileScreen(
                     calendar.get(Calendar.MONTH),
                     calendar.get(Calendar.DAY_OF_MONTH)
                 )
-
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White)
+                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                        .clip(RoundedCornerShape(16.dp)).background(Color.White)
                         .border(1.dp, Color.Black.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
-                        .clickable { datePickerDialog.show() }
-                        .padding(horizontal = 16.dp),
+                        .clickable { datePickerDialog.show() }.padding(horizontal = 16.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
@@ -324,33 +227,54 @@ fun ProfileScreen(
                 }
             }
 
-            // Adult Password Section
+            // ─── GÜVENLİK SORULARI ───────────────────────────────────────────────
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Adult Password",
-                        tint = Color.Black.copy(alpha = 0.4f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = "ADULT OYUN ŞİFRESİ",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black.copy(alpha = 0.4f),
-                        letterSpacing = 1.sp
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFF7C3AED).copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                    Text(text = "GÜVENLİK SORULARI", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED).copy(alpha = 0.7f), letterSpacing = 1.sp)
                 }
-                
+                Text(text = "Bu cevaplar Adult şifrenizi değiştirmek için kullanılır.", fontSize = 12.sp, color = Color.Black.copy(alpha = 0.5f))
+
+                // Soru 1
+                SecurityQuestionSelector(
+                    index = 1,
+                    selectedQuestion = selectedQuestion1,
+                    answer = answer1,
+                    allQuestions = SECURITY_QUESTIONS,
+                    disabledQuestion = selectedQuestion2,
+                    showDropdown = showQ1Dropdown,
+                    onDropdownToggle = { showQ1Dropdown = !showQ1Dropdown },
+                    onQuestionSelect = { selectedQuestion1 = it; showQ1Dropdown = false },
+                    onAnswerChange = { answer1 = it }
+                )
+
+                // Soru 2
+                SecurityQuestionSelector(
+                    index = 2,
+                    selectedQuestion = selectedQuestion2,
+                    answer = answer2,
+                    allQuestions = SECURITY_QUESTIONS,
+                    disabledQuestion = selectedQuestion1,
+                    showDropdown = showQ2Dropdown,
+                    onDropdownToggle = { showQ2Dropdown = !showQ2Dropdown },
+                    onQuestionSelect = { selectedQuestion2 = it; showQ2Dropdown = false },
+                    onAnswerChange = { answer2 = it }
+                )
+            }
+
+            // ─── ADULT ŞİFRESİ ────────────────────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color.Black.copy(alpha = 0.4f), modifier = Modifier.size(16.dp))
+                    Text(text = "ADULT OYUN ŞİFRESİ", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black.copy(alpha = 0.4f), letterSpacing = 1.sp)
+                }
+
                 OutlinedTextField(
                     value = adultPassword,
                     onValueChange = { adultPassword = it },
-                    placeholder = { Text("Mevcut Adult şifresi") },
+                    placeholder = { Text("Şifre belirleyin (İsteğe bağlı)") },
                     singleLine = true,
-                    enabled = false, // Must be changed via Email verification code
+                    enabled = false,
                     visualTransformation = PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(
                         disabledBorderColor = Color.Black.copy(alpha = 0.05f),
@@ -361,42 +285,29 @@ fun ProfileScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 📩 MAİLE KOD GÖNDER VE ŞİFRE DEĞİŞTİR BUTONU
+                // Güvenlik sorusuyla şifre değiştirme butonu
                 Button(
                     onClick = {
-                        isSendingCode = true
-                        coroutineScope.launch {
-                            try {
-                                val code = repository.sendAdultPasswordResetCode(userEmail)
-                                lastSentCode = code
-                                Toast.makeText(context, "Doğrulama kodu $userEmail adresinize e-posta olarak gönderildi!", Toast.LENGTH_LONG).show()
-                                showAdultResetModal = true
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                Toast.makeText(context, "Kod gönderilemedi: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                            } finally {
-                                isSendingCode = false
-                            }
+                        val storedQuestions = repository.getStoredSecurityQuestions().keys.toList()
+                        if (storedQuestions.isEmpty()) {
+                            Toast.makeText(context, "Önce güvenlik sorularınızı kaydedip tekrar deneyin.", Toast.LENGTH_LONG).show()
+                            return@Button
                         }
+                        challengeQuestion = storedQuestions.random()
+                        challengeAnswer = ""
+                        newAdultPasswordInput = ""
+                        showChangeAdultPasswordModal = true
                     },
-                    enabled = !isSendingCode,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626), contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED), contentColor = Color.White),
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
-                    if (isSendingCode) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
-                    } else {
-                        Icon(imageVector = Icons.Default.Mail, contentDescription = "Kod Gönder", modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (adultPassword.isEmpty()) "ADULT ŞİFRESİ BELİRLE (MAİLE KOD İSTE) 📩" else "ADULT ŞİFRESİNİ DEĞİŞTİR (MAİLE KOD İSTE) 📩",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    }
+                    Icon(imageVector = Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (adultPassword.isEmpty()) "ADULT ŞİFRESİ BELİRLE 🔐" else "ADULT ŞİFRESİNİ DEĞİŞTİR 🔐",
+                        fontWeight = FontWeight.Bold, fontSize = 12.sp
+                    )
                 }
             }
 
@@ -404,63 +315,53 @@ fun ProfileScreen(
 
             // Save Button
             if (isLoading) {
-                CircularProgressIndicator(
-                    color = Color.Black,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
+                CircularProgressIndicator(color = Color.Black, modifier = Modifier.align(Alignment.CenterHorizontally))
             } else {
                 Button(
                     onClick = { doSave() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Black,
-                        contentColor = Color.White
-                    ),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),
                     shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
+                    modifier = Modifier.fillMaxWidth().height(60.dp)
                 ) {
                     Icon(imageVector = Icons.Default.Save, contentDescription = "Save")
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "KAYDET",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Text(text = "KAYDET", fontSize = 16.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
 
-        // 🔒 MAİLE GİDEN KOD VE YENİ ADULT ŞİFRE DEĞİŞTİRME MODALI
-        if (showAdultResetModal) {
+        // ─── GÜVENLİK SORUSU DOĞRULAMA MODALI ─────────────────────────────────
+        if (showChangeAdultPasswordModal) {
             AlertDialog(
-                onDismissRequest = { showAdultResetModal = false },
+                onDismissRequest = { showChangeAdultPasswordModal = false },
                 title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Lock, contentDescription = "Adult Lock", tint = Color(0xFFDC2626))
-                        Text("ADULT ŞİFRESİ DEĞİŞTİR", fontWeight = FontWeight.Black, fontSize = 18.sp, color = Color.Black)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFF7C3AED))
+                        Text("ADULT ŞİFRESİ DEĞİŞTİR", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Color.Black)
                     }
                 },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(
-                            text = "unmask adult şifre değişikliği talebiniz alındı. ****** kodu ilgili yere yazınız.",
-                            fontSize = 13.sp,
-                            color = Color(0xFFDC2626),
-                            fontWeight = FontWeight.Bold
-                        )
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        // Güvenlik sorusu kutusu
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFF3F0FF))
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("🔐 Güvenlik Sorusu", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED), letterSpacing = 0.5.sp)
+                            Text(challengeQuestion, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                        }
 
                         OutlinedTextField(
-                            value = verificationCodeInput,
-                            onValueChange = { if (it.length <= 6) verificationCodeInput = it },
-                            label = { Text("6 Haneli Doğrulama Kodu") },
-                            placeholder = { Text("Örn: 654321") },
+                            value = challengeAnswer,
+                            onValueChange = { challengeAnswer = it },
+                            label = { Text("Cevabınız") },
+                            placeholder = { Text("Cevabınızı yazın") },
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFFDC2626),
+                                focusedBorderColor = Color(0xFF7C3AED),
                                 unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
                             ),
                             shape = RoundedCornerShape(12.dp),
@@ -475,7 +376,7 @@ fun ProfileScreen(
                             singleLine = true,
                             visualTransformation = PasswordVisualTransformation(),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFFDC2626),
+                                focusedBorderColor = Color(0xFF7C3AED),
                                 unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
                             ),
                             shape = RoundedCornerShape(12.dp),
@@ -486,56 +387,48 @@ fun ProfileScreen(
                 confirmButton = {
                     Button(
                         onClick = {
-                            if (verificationCodeInput.length != 6) {
-                                Toast.makeText(context, "Lütfen 6 haneli doğrulama kodunu tam girin", Toast.LENGTH_SHORT).show()
+                            if (challengeAnswer.isBlank()) {
+                                Toast.makeText(context, "Lütfen güvenlik sorusunu cevaplayın", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                             if (newAdultPasswordInput.isEmpty()) {
                                 Toast.makeText(context, "Lütfen yeni Adult şifrenizi girin", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-
-                            isVerifyingCode = true
+                            isVerifying = true
                             coroutineScope.launch {
                                 try {
-                                    val isValid = repository.verifyAdultPasswordResetCode(userEmail, verificationCodeInput)
+                                    val isValid = repository.verifySecurityAnswer(challengeQuestion, challengeAnswer)
                                     if (isValid) {
                                         adultPassword = newAdultPasswordInput
                                         repository.updateProfile(displayName, nickname, selectedGender, birthDate, newAdultPasswordInput)
                                         Toast.makeText(context, "Adult şifreniz başarıyla güncellendi! 🔒", Toast.LENGTH_SHORT).show()
-                                        showAdultResetModal = false
-                                        verificationCodeInput = ""
-                                        newAdultPasswordInput = ""
+                                        showChangeAdultPasswordModal = false
                                     } else {
-                                        Toast.makeText(context, "⚠️ Girdiğiniz doğrulama kodu hatalı!", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, "⚠️ Güvenlik sorusu cevabı hatalı!", Toast.LENGTH_LONG).show()
                                     }
                                 } catch (e: Exception) {
                                     e.printStackTrace()
-                                    Toast.makeText(context, "Doğrulama hatası: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Hata: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                                 } finally {
-                                    isVerifyingCode = false
+                                    isVerifying = false
                                 }
                             }
                         },
-                        enabled = !isVerifyingCode,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626), contentColor = Color.White),
+                        enabled = !isVerifying,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED), contentColor = Color.White),
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
+                        modifier = Modifier.fillMaxWidth().height(50.dp)
                     ) {
-                        if (isVerifyingCode) {
+                        if (isVerifying) {
                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
                         } else {
-                            Text("DOĞRULA VE ŞİFREYİ KAYDET 🔒", fontWeight = FontWeight.Black)
+                            Text("DOĞRULA VE KAYDET 🔒", fontWeight = FontWeight.Black)
                         }
                     }
                 },
                 dismissButton = {
-                    TextButton(
-                        onClick = { showAdultResetModal = false },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+                    TextButton(onClick = { showChangeAdultPasswordModal = false }, modifier = Modifier.fillMaxWidth()) {
                         Text("İPTAL", color = Color.Black.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
                     }
                 },
@@ -543,5 +436,110 @@ fun ProfileScreen(
                 shape = RoundedCornerShape(24.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun ProfileLabel(text: String) {
+    Text(text = text, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black.copy(alpha = 0.4f), letterSpacing = 1.sp)
+}
+
+@Composable
+private fun ProfileTextField(label: String, value: String, onValueChange: (String) -> Unit, placeholder: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ProfileLabel(text = label)
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder) },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Black.copy(alpha = 0.2f),
+                unfocusedBorderColor = Color.Black.copy(alpha = 0.05f),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White
+            ),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SecurityQuestionSelector(
+    index: Int,
+    selectedQuestion: String,
+    answer: String,
+    allQuestions: List<String>,
+    disabledQuestion: String,
+    showDropdown: Boolean,
+    onDropdownToggle: () -> Unit,
+    onQuestionSelect: (String) -> Unit,
+    onAnswerChange: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, Color.Black.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text("Soru $index", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED).copy(alpha = 0.7f), letterSpacing = 0.5.sp)
+
+        // Dropdown selector
+        ExposedDropdownMenuBox(
+            expanded = showDropdown,
+            onExpandedChange = { onDropdownToggle() }
+        ) {
+            OutlinedTextField(
+                value = selectedQuestion,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Soruyu seçin") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showDropdown) },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFF7C3AED),
+                    unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().menuAnchor()
+            )
+            ExposedDropdownMenu(
+                expanded = showDropdown,
+                onDismissRequest = { onDropdownToggle() }
+            ) {
+                allQuestions.forEach { q ->
+                    val isDisabled = q == disabledQuestion
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = q,
+                                color = if (isDisabled) Color.Gray else Color.Black,
+                                fontSize = 13.sp
+                            )
+                        },
+                        enabled = !isDisabled,
+                        onClick = { if (!isDisabled) onQuestionSelect(q) }
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = answer,
+            onValueChange = onAnswerChange,
+            label = { Text("Cevabınız") },
+            placeholder = { Text("Cevabınızı yazın") },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFF7C3AED),
+                unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

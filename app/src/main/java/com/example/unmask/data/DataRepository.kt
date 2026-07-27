@@ -97,6 +97,9 @@ interface DataRepository {
     suspend fun cancelSentGameRequest(requestId: String)
     suspend fun sendAdultPasswordResetCode(email: String): String
     suspend fun verifyAdultPasswordResetCode(email: String, code: String): Boolean
+    suspend fun saveSecurityAnswers(answers: Map<String, String>)
+    suspend fun verifySecurityAnswer(question: String, answer: String): Boolean
+    fun getStoredSecurityQuestions(): Map<String, String>
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -1479,6 +1482,37 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             e.printStackTrace()
         }
         return false
+    }
+
+    override suspend fun saveSecurityAnswers(answers: Map<String, String>) {
+        val uid = _currentUser.value?.uid ?: return
+        if (uid == "offline_demo_user") return
+        try {
+            // Normalize answers: lowercase & trim
+            val normalized = answers.mapValues { it.value.trim().lowercase() }
+            firestore.collection("users").document(uid).update("securityAnswers", normalized).await()
+            val updated = _currentUser.value?.copy(securityAnswers = normalized)
+            if (updated != null) _currentUser.value = updated
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override suspend fun verifySecurityAnswer(question: String, answer: String): Boolean {
+        val uid = _currentUser.value?.uid ?: return false
+        if (uid == "offline_demo_user") return true
+        try {
+            val storedAnswers = _currentUser.value?.securityAnswers ?: emptyMap()
+            val stored = storedAnswers[question]?.trim()?.lowercase()
+            return stored != null && stored == answer.trim().lowercase()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
+
+    override fun getStoredSecurityQuestions(): Map<String, String> {
+        return _currentUser.value?.securityAnswers ?: emptyMap()
     }
 }
 

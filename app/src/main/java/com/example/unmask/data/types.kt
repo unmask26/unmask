@@ -43,7 +43,8 @@ data class UserProfile(
     val banUntil: Long? = 0L,
     val score: Int = 100,
     val ratingCount: Int = 0,
-    val totalRating: Int = 0
+    val totalRating: Int = 0,
+    val securityAnswers: Map<String, String> = emptyMap()
 )
 
 @Serializable
