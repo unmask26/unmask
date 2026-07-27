@@ -1391,15 +1391,6 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val code = (100_000..999_999).random().toString()
         val uid = _currentUser.value?.uid ?: "demo"
         val emailMessage = "unmask adult şifre değişikliği talebiniz alındı. $code kodu ilgili yere yazınız."
-        
-        try {
-            auth.setLanguageCode("tr")
-            if (email.contains("@")) {
-                auth.sendPasswordResetEmail(email)
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
 
         try {
             if (uid != "offline_demo_user") {

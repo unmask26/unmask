@@ -64,6 +64,7 @@ fun ProfileScreen(
     var newAdultPasswordInput by remember { mutableStateOf("") }
     var isSendingCode by remember { mutableStateOf(false) }
     var isVerifyingCode by remember { mutableStateOf(false) }
+    var lastSentCode by remember { mutableStateOf("") }
 
     val userEmail = remember(user) {
         repository.currentFirebaseUser?.email ?: "kullanici@example.com"
@@ -366,8 +367,9 @@ fun ProfileScreen(
                         isSendingCode = true
                         coroutineScope.launch {
                             try {
-                                repository.sendAdultPasswordResetCode(userEmail)
-                                Toast.makeText(context, "6 Haneli doğrulama kodu $userEmail adresinize gönderildi!", Toast.LENGTH_LONG).show()
+                                val code = repository.sendAdultPasswordResetCode(userEmail)
+                                lastSentCode = code
+                                Toast.makeText(context, "unmask adult şifre değişikliği talebiniz alındı. $code kodu ilgili yere yazınız.", Toast.LENGTH_LONG).show()
                                 showAdultResetModal = true
                             } catch (e: Exception) {
                                 e.printStackTrace()
@@ -445,10 +447,10 @@ fun ProfileScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            text = "unmask adult şifre değişikliği talebiniz alındı. E-posta adresinize gönderilen 6 haneli kodu ve yeni Adult şifrenizi ilgili yere yazınız.",
-                            fontSize = 12.sp,
-                            color = Color.Black.copy(alpha = 0.7f),
-                            fontWeight = FontWeight.Medium
+                            text = "unmask adult şifre değişikliği talebiniz alındı. ${if (lastSentCode.isNotEmpty()) lastSentCode else "******"} kodu ilgili yere yazınız.",
+                            fontSize = 13.sp,
+                            color = Color(0xFFDC2626),
+                            fontWeight = FontWeight.Bold
                         )
 
                         OutlinedTextField(
