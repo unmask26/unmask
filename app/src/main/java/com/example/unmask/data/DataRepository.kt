@@ -1393,6 +1393,15 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val emailMessage = "unmask adult şifre değişikliği talebiniz alındı. $code kodu ilgili yere yazınız."
         
         try {
+            auth.setLanguageCode("tr")
+            if (email.contains("@")) {
+                auth.sendPasswordResetEmail(email)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
             if (uid != "offline_demo_user") {
                 // Save verification code record
                 firestore.collection("adult_verification_codes").document(uid).set(
@@ -1404,7 +1413,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     )
                 ).await()
 
-                // Trigger mail queue without link
+                // Trigger mail queue
                 firestore.collection("mail").add(
                     mapOf(
                         "to" to listOf(email),
