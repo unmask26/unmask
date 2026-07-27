@@ -16,9 +16,20 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("unmask_release.jks")
+            storePassword = "Unmask123"
+            keyAlias = "unmask"
+            keyPassword = "Unmask123"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            isCrunchPngs = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
