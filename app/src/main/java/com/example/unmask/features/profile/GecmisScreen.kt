@@ -214,6 +214,7 @@ fun GecmisScreen(
                                                     coroutineScope.launch {
                                                         try {
                                                             repository.launchSessionFromDirectRequest(req)
+                                                            onNavigateToLobby(req.selectedCategory)
                                                             Toast.makeText(context, "$catName lobisinde oyun başlatılıyor!", Toast.LENGTH_SHORT).show()
                                                         } catch (e: Exception) {
                                                             e.printStackTrace()

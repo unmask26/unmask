@@ -55,6 +55,13 @@ fun OyunScreen(
 ) {
     var showOnlineSection by remember(initialOnlineCategory) { mutableStateOf(initialOnlineCategory != null) }
     
+    val activeSession by repository.observeActiveSession(user?.uid ?: "").collectAsState(initial = null)
+    LaunchedEffect(activeSession?.id) {
+        if (activeSession?.id != null) {
+            showOnlineSection = true
+        }
+    }
+    
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val dotAlpha by infiniteTransition.animateFloat(
         initialValue = 0.3f,
