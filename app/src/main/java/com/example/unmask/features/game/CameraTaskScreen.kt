@@ -39,6 +39,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -498,7 +499,8 @@ fun CameraTaskScreen(
                     modifier = Modifier
                         .statusBarsPadding()
                         .padding(top = 24.dp, start = 20.dp)
-                        .background(Color.Red.copy(alpha = alphaAnim), RoundedCornerShape(50))
+                        .graphicsLayer { alpha = alphaAnim }
+                        .background(Color.Red, RoundedCornerShape(50))
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                         .align(Alignment.TopStart),
                     verticalAlignment = Alignment.CenterVertically,
