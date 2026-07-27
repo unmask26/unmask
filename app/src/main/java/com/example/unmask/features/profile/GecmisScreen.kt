@@ -56,7 +56,8 @@ fun formatLastSeenTime(timestamp: Long): String {
 @Composable
 fun GecmisScreen(
     repository: DataRepository,
-    userId: String
+    userId: String,
+    onNavigateToLobby: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -182,7 +183,7 @@ fun GecmisScreen(
                                                     color = Color.Black
                                                 )
                                                 Text(
-                                                    text = if (isLobbySelected) "$catName LOBİSİNDE LOBİ SEÇİLDİ! 🎯" else "İstek gönderildi (Yanıt bekleniyor...)",
+                                                    text = if (isLobbySelected) "$catName LOBİSİNİ SEÇTİ! 🎯" else "İstek gönderildi (Lobi seçmesi bekleniyor...)",
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = if (isLobbySelected) Color(0xFF047857) else Color.Black.copy(alpha = 0.5f)
@@ -205,7 +206,7 @@ fun GecmisScreen(
                                             }
                                         }
 
-                                        // 🎯 KARŞI TARAF LOBİ SEÇİNCE ÇIKAN "BU LOBİDE - OYUNA BAŞLA" İBARESİ
+                                        // 🎯 KARŞI TARAF LOBİ SEÇİNCE ÇIKAN "KABUL ET & OYUNA BAŞLA" İBARESİ
                                         if (isLobbySelected) {
                                             Button(
                                                 onClick = {
@@ -233,7 +234,7 @@ fun GecmisScreen(
                                                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp))
                                                 } else {
                                                     Text(
-                                                        text = "${req.receiverNickname} $catName LOBİSİNDE — OYUNA BAŞLA 🚀",
+                                                        text = "KABUL ET & OYUNA BAŞLA ($catName LOBİSİ) 🚀",
                                                         fontWeight = FontWeight.Black,
                                                         fontSize = 12.sp
                                                     )
@@ -474,7 +475,7 @@ fun GecmisScreen(
                             color = if (isOnline) Color(0xFF10B981) else Color.Black.copy(alpha = 0.5f)
                         )
                         Text(
-                            text = "Bu kullanıcıya oyun davet kartı gönderebilirsiniz. Karşı taraf lobi seçtiğinde kartınız güncellenecektir.",
+                            text = "Bu kullanıcıya oyun davet kartı gönderebilirsiniz. Karşı taraf lobi seçtiğinde onay verip oyunu başlatabilirsiniz.",
                             fontSize = 12.sp,
                             color = Color.Black.copy(alpha = 0.6f)
                         )
@@ -565,7 +566,8 @@ fun GecmisScreen(
                                             coroutineScope.launch {
                                                 try {
                                                     repository.acceptDirectGameRequest(req, cat.key)
-                                                    Toast.makeText(context, "${cat.name} lobisi seçildi! Gönderen taraf oyunu başlatacak.", Toast.LENGTH_SHORT).show()
+                                                    Toast.makeText(context, "${cat.name} lobisi seçildi! Seçtiğiniz lobiye yönlendiriliyorsunuz...", Toast.LENGTH_SHORT).show()
+                                                    onNavigateToLobby(cat.key)
                                                 } catch (e: Exception) {
                                                     e.printStackTrace()
                                                     Toast.makeText(context, "Lobi seçilemedi: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()

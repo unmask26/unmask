@@ -102,6 +102,8 @@ fun MainAppScreen(
         }
     }
 
+    var selectedLobbyCategory by remember { mutableStateOf<String?>(null) }
+
     if (currentUser == null) {
         Box(
             modifier = Modifier
@@ -234,6 +236,7 @@ fun MainAppScreen(
                         activeGame = activeGame,
                         customGames = customGames,
                         repository = repository,
+                        initialOnlineCategory = selectedLobbyCategory,
                         onStartSession = onStartSession,
                         onEndSession = onEndSession,
                         onNavigateToQR = onNavigateToQR,
@@ -243,7 +246,11 @@ fun MainAppScreen(
                     )
                     "gecmis" -> GecmisScreen(
                         repository = repository,
-                        userId = currentUser!!.uid
+                        userId = currentUser!!.uid,
+                        onNavigateToLobby = { catKey ->
+                            selectedLobbyCategory = catKey
+                            activeTab = "oyun"
+                        }
                     )
                     "ani" -> AniScreen(
                         repository = repository,

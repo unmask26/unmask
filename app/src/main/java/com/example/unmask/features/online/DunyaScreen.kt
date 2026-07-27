@@ -84,6 +84,7 @@ import java.io.File
 @Composable
 fun DunyaScreen(
     repository: DataRepository,
+    initialCategory: String? = null,
     onBack: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
@@ -102,7 +103,7 @@ fun DunyaScreen(
 
     val user = currentUser!!
     
-    var selectedOnlineCategory by remember { mutableStateOf<String?>(null) }
+    var selectedOnlineCategory by remember { mutableStateOf<String?>(initialCategory) }
     var pendingCategory by remember { mutableStateOf<String?>(null) }
     var showPasswordPrompt by remember { mutableStateOf(false) }
     var inputPassword by remember { mutableStateOf("") }

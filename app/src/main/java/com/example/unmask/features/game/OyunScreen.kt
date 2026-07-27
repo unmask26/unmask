@@ -46,12 +46,13 @@ fun OyunScreen(
     activeGame: Game?,
     customGames: List<Game> = emptyList(),
     repository: com.example.unmask.data.DataRepository,
+    initialOnlineCategory: String? = null,
     onStartSession: (Game) -> Unit,
     onEndSession: () -> Unit,
     onNavigateToQR: (String?) -> Unit,
     onMenuClick: () -> Unit
 ) {
-    var showOnlineSection by remember { mutableStateOf(false) }
+    var showOnlineSection by remember(initialOnlineCategory) { mutableStateOf(initialOnlineCategory != null) }
     
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val dotAlpha by infiniteTransition.animateFloat(
@@ -81,6 +82,7 @@ fun OyunScreen(
         if (showOnlineSection) {
             DunyaScreen(
                 repository = repository,
+                initialCategory = initialOnlineCategory,
                 onBack = { showOnlineSection = false }
             )
         } else if (selectedCategory != null) {
