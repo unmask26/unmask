@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 🔐 Yardımcı Doğrulama Fonksiyonları
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 1. Kullanıcı Profilleri (users)
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isOwner(userId);
+    }
+
+    // 2. Çevrim İçi Durum / Lobi Durumu (online_users)
+    match /online_users/{userId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    // 3. Canlı Oyun Eşleşme Seansları (online_sessions)
+    match /online_sessions/{sessionId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // 4. Doğrudan Oyun İstekleri (direct_game_requests)
+    match /direct_game_requests/{requestId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // 5. Oyun Geçmişi (history)
+    match /history/{historyId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // 6. Kullanıcı Anıları ve Kayıtlı Videoları (memories)
+    match /memories/{memoryId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // 7. Dünya Sekmesi Kamuoyuna Açık Videolar (public_videos)
+    match /public_videos/{videoId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // 8. Adult Şifre Sıfırlama Doğrulama Kodları (adult_verification_codes)
+    match /adult_verification_codes/{userId} {
+      allow read: if isOwner(userId);
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    // 9. E-posta Gönderim Tetikleyicisi (mail)
+    match /mail/{mailId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if false; // Yalnızca Firebase Mail eklentisi tarafından işlenir
+    }
+  }
+}
