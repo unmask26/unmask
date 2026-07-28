@@ -8,6 +8,8 @@ import com.example.unmask.features.online.*
 import com.example.unmask.features.profile.*
 
 
+import android.widget.Toast
+import kotlinx.coroutines.launch
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -460,19 +462,31 @@ fun OyunScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
-                        if (passwordError) {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        val coroutineScope = rememberCoroutineScope()
+                        TextButton(
+                            onClick = {
+                                val email = repository.currentFirebaseUser?.email
+                                if (email.isNullOrEmpty()) {
+                                    Toast.makeText(context, "E-posta adresi bulunamadı.", Toast.LENGTH_LONG).show()
+                                    return@TextButton
+                                }
+                                coroutineScope.launch {
+                                    try {
+                                        repository.sendPasswordResetEmail(email)
+                                        Toast.makeText(context, "📧 $email adresine şifre sıfırlama e-postası gönderildi!", Toast.LENGTH_LONG).show()
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "E-posta gönderilemedi: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
                             Text(
-                                text = "Hatalı şifre! Lütfen tekrar deneyin.",
-                                color = Color.Red,
+                                text = "Şifremi Unuttum (E-posta Gönder 📧)",
+                                color = Color(0xFF7C3AED),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
-                            )
-                        } else if (user?.adultPassword.isNullOrEmpty()) {
-                            Text(
-                                text = "Herhangi bir şifre belirlenmemiş. Doğrudan 'ONAYLA' diyerek girebilir veya profil ayarlarından şifre tanımlayabilirsiniz.",
-                                color = Color.Black.copy(alpha = 0.4f),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
                             )
                         }
                     }

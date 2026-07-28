@@ -225,7 +225,7 @@ fun ProfileScreen(
                         coroutineScope.launch {
                             try {
                                 repository.sendPasswordResetEmail(email)
-                                Toast.makeText(context, "📧 $email adresine şifre sıfırlama bağlantısı gönderildi!\n\nYeni şifrenizi yukarıdaki 'ADULT OYUN ŞİFRESİ' alanına yazıp en alttaki KAYDET butonuna basınız.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "📧 $email adresine şifre sıfırlama bağlantısı gönderildi!\n\nMaildeki sıfırlama bağlantısına tıklayıp yeni şifrenizi belirleyebilirsiniz. Ardından yukarıdaki alana yazıp KAYDET'e basınız.", Toast.LENGTH_LONG).show()
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Sıfırlama e-postası gönderilemedi: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                             }
@@ -238,31 +238,9 @@ fun ProfileScreen(
                     Icon(imageVector = Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "E-POSTA İLE ŞİFRE SIFIRLAMA BAĞLANTISI GÖNDER 📧",
+                        text = "ADULT OYUN ŞİFRESİ SIFIRLAMA E-POSTASI GÖNDER 📧",
                         fontWeight = FontWeight.Bold, fontSize = 11.sp
                     )
-                }
-
-                // Şifreyi Temizle / Kaldır Butonu
-                if (adultPassword.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = {
-                            adultPassword = ""
-                            coroutineScope.launch {
-                                try {
-                                    repository.updateProfile(displayName, nickname, selectedGender, birthDate, "")
-                                    Toast.makeText(context, "Adult şifresi temizlendi! 🔓", Toast.LENGTH_SHORT).show()
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Hata: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().height(44.dp)
-                    ) {
-                        Text(text = "ADULT ŞİFRESİNİ TEMİZLE (ŞİFRESİZ YAP) 🔓", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
                 }
             }
 
