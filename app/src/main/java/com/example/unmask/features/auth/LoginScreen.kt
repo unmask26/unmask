@@ -87,73 +87,7 @@ fun LoginScreen(
             coroutineScope.launch {
                 isLoading = true
                 try {
-                    var googleBirthDate = ""
-                    try {
-                        val accountToUse = account.account ?: android.accounts.Account(account.email ?: "", "com.google")
-                        Log.d("GoogleSignIn", "Fetching OAuth access token for ${accountToUse.name}...")
-                        val accessToken = withContext(Dispatchers.IO) {
-                            try {
-                                com.google.android.gms.auth.GoogleAuthUtil.getToken(
-                                    context,
-                                    accountToUse,
-                                    "oauth2:https://www.googleapis.com/auth/user.birthday.read"
-                                )
-                            } catch (authEx: Exception) {
-                                Log.e("GoogleSignIn", "GoogleAuthUtil.getToken error: ${authEx.message}", authEx)
-                                null
-                            }
-                        }
-                        Log.d("GoogleSignIn", "Access token acquired: ${!accessToken.isNullOrEmpty()}")
-                        if (!accessToken.isNullOrEmpty()) {
-                            googleBirthDate = withContext(Dispatchers.IO) {
-                                try {
-                                    val url = java.net.URL("https://people.googleapis.com/v1/people/me?personFields=birthdays")
-                                    val conn = url.openConnection() as java.net.HttpURLConnection
-                                    conn.requestMethod = "GET"
-                                    conn.setRequestProperty("Authorization", "Bearer $accessToken")
-                                    conn.setRequestProperty("Accept", "application/json")
-                                    conn.connectTimeout = 5000
-                                    conn.readTimeout = 5000
-
-                                    val responseCode = conn.responseCode
-                                    Log.d("GoogleSignIn", "People API HTTP Code: $responseCode")
-                                    if (responseCode == 200) {
-                                        val response = conn.inputStream.bufferedReader().use { it.readText() }
-                                        Log.d("GoogleSignIn", "People API Body: $response")
-                                        val json = org.json.JSONObject(response)
-                                        if (json.has("birthdays")) {
-                                            val birthdays = json.getJSONArray("birthdays")
-                                            if (birthdays.length() > 0) {
-                                                val bdayObj = birthdays.getJSONObject(0)
-                                                if (bdayObj.has("date")) {
-                                                    val dateObj = bdayObj.getJSONObject("date")
-                                                    val year = if (dateObj.has("year")) dateObj.getInt("year") else null
-                                                    val month = if (dateObj.has("month")) dateObj.getInt("month") else null
-                                                    val day = if (dateObj.has("day")) dateObj.getInt("day") else null
-
-                                                    if (year != null && month != null && day != null) {
-                                                        String.format(java.util.Locale.US, "%04d-%02d-%02d", year, month, day)
-                                                    } else ""
-                                                } else ""
-                                            } else ""
-                                        } else ""
-                                    } else {
-                                        val errBody = conn.errorStream?.bufferedReader()?.use { it.readText() }
-                                        Log.e("GoogleSignIn", "People API Error Stream: $errBody")
-                                        ""
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e("GoogleSignIn", "Error requesting People API: ${e.message}", e)
-                                    ""
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e("GoogleSignIn", "Error during birthdate extraction: ${e.message}", e)
-                    }
-                    Log.d("GoogleSignIn", "Resulting Google birthdate: '$googleBirthDate'")
-
-                    repository.loginWithCredential(credential, googleBirthDate)
+                    repository.loginWithCredential(credential)
                     Toast.makeText(context, "Google Girişi Başarılı!", Toast.LENGTH_SHORT).show()
                     onLoginSuccess()
                 } catch (e: Exception) {
@@ -247,7 +181,6 @@ fun LoginScreen(
                                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                                     .requestIdToken("908513940709-beipp9gvcnrrbnat1u55gh22eh7u7bfj.apps.googleusercontent.com")
                                     .requestEmail()
-                                    .requestScopes(Scope("https://www.googleapis.com/auth/user.birthday.read"))
                                     .build()
                                 val googleSignInClient = GoogleSignIn.getClient(context, gso)
                                 googleSignInLauncher.launch(googleSignInClient.signInIntent)
