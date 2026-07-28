@@ -102,6 +102,8 @@ interface DataRepository {
     fun getStoredSecurityQuestions(): Map<String, String>
     suspend fun sendPasswordResetEmail(email: String)
     suspend fun verifyAndUpdateAdultPassword(inputPassword: String): Boolean
+    suspend fun registerWithEmail(email: String, password: String, displayName: String, birthDate: String): UserProfile
+    suspend fun loginWithEmail(email: String, password: String): UserProfile
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -315,6 +317,54 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             _currentUser.value = profile
             profile
         }
+    }
+
+    override suspend fun registerWithEmail(email: String, password: String, displayName: String, birthDate: String): UserProfile {
+        val result = auth.createUserWithEmailAndPassword(email, password).await()
+        val uid = result.user!!.uid
+        
+        fun calculateIsAdult(bDate: String): Boolean {
+            return try {
+                if (bDate.isEmpty()) return false
+                val parts = bDate.split("-")
+                val birthYear = parts[0].toInt()
+                val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                (currentYear - birthYear) >= 18
+            } catch (e: Exception) {
+                false
+            }
+        }
+        val isAdultCalculated = calculateIsAdult(birthDate)
+
+        val profile = UserProfile(
+            uid = uid,
+            displayName = displayName.ifBlank { "Oyuncu" },
+            gender = "Erkek",
+            birthDate = birthDate,
+            isAdult = isAdultCalculated
+        )
+        firestore.collection("users").document(uid).set(profile).await()
+        _currentUser.value = profile
+        return profile
+    }
+
+    override suspend fun loginWithEmail(email: String, password: String): UserProfile {
+        val result = auth.signInWithEmailAndPassword(email, password).await()
+        val uid = result.user!!.uid
+        val doc = firestore.collection("users").document(uid).get().await()
+        val profile = if (doc.exists()) {
+            doc.toObject(UserProfile::class.java)!!
+        } else {
+            UserProfile(
+                uid = uid,
+                displayName = result.user!!.displayName ?: "Oyuncu",
+                gender = "Erkek",
+                birthDate = "",
+                isAdult = false
+            )
+        }
+        _currentUser.value = profile
+        return profile
     }
 
     override suspend fun loginWithCredential(credential: AuthCredential, googleBirthDate: String): UserProfile {
