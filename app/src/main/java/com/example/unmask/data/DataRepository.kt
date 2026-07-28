@@ -100,6 +100,7 @@ interface DataRepository {
     suspend fun saveSecurityAnswers(answers: Map<String, String>)
     suspend fun verifySecurityAnswer(question: String, answer: String): Boolean
     fun getStoredSecurityQuestions(): Map<String, String>
+    suspend fun sendPasswordResetEmail(email: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -1406,6 +1407,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    override suspend fun sendPasswordResetEmail(email: String) {
+        auth.sendPasswordResetEmail(email).await()
     }
 
     private suspend fun sendDirectEmail(toEmail: String, code: String) {

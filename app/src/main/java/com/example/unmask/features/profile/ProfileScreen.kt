@@ -78,12 +78,7 @@ fun ProfileScreen(
     var showQ1Dropdown by remember { mutableStateOf(false) }
     var showQ2Dropdown by remember { mutableStateOf(false) }
 
-    // Adult password change via security question
-    var showChangeAdultPasswordModal by remember { mutableStateOf(false) }
-    var challengeQuestion by remember { mutableStateOf("") }
-    var challengeAnswer by remember { mutableStateOf("") }
-    var newAdultPasswordInput by remember { mutableStateOf("") }
-    var isVerifying by remember { mutableStateOf(false) }
+
 
     LaunchedEffect(user) {
         val u = user
@@ -281,29 +276,36 @@ fun ProfileScreen(
                     onValueChange = { adultPassword = it },
                     placeholder = { Text("Şifre belirleyin (İsteğe bağlı)") },
                     singleLine = true,
-                    enabled = false,
+                    enabled = true,
                     visualTransformation = PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        disabledBorderColor = Color.Black.copy(alpha = 0.05f),
-                        disabledContainerColor = Color.White,
-                        disabledTextColor = Color.Black
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                        focusedBorderColor = Color(0xFF7C3AED),
+                        unfocusedBorderColor = Color.Black.copy(alpha = 0.15f),
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
                     ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // Güvenlik sorusuyla şifre değiştirme butonu
+                // E-posta ile şifre sıfırlama bağlantısı gönderme butonu
                 Button(
                     onClick = {
-                        val storedQuestions = repository.getStoredSecurityQuestions().keys.toList()
-                        if (storedQuestions.isEmpty()) {
-                            Toast.makeText(context, "Önce güvenlik sorularınızı kaydedip tekrar deneyin.", Toast.LENGTH_LONG).show()
+                        val email = repository.currentFirebaseUser?.email
+                        if (email.isNullOrEmpty()) {
+                            Toast.makeText(context, "E-posta adresi bulunamadı.", Toast.LENGTH_LONG).show()
                             return@Button
                         }
-                        challengeQuestion = storedQuestions.random()
-                        challengeAnswer = ""
-                        newAdultPasswordInput = ""
-                        showChangeAdultPasswordModal = true
+                        coroutineScope.launch {
+                            try {
+                                repository.sendPasswordResetEmail(email)
+                                Toast.makeText(context, "📧 $email adresine şifre sıfırlama bağlantısı gönderildi!", Toast.LENGTH_LONG).show()
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Sıfırlama e-postası gönderilemedi: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                            }
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED), contentColor = Color.White),
                     shape = RoundedCornerShape(16.dp),
@@ -312,8 +314,8 @@ fun ProfileScreen(
                     Icon(imageVector = Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (adultPassword.isEmpty()) "ADULT ŞİFRESİ BELİRLE 🔐" else "ADULT ŞİFRESİNİ DEĞİŞTİR 🔐",
-                        fontWeight = FontWeight.Bold, fontSize = 12.sp
+                        text = "E-POSTA İLE ŞİFRE SIFIRLAMA BAĞLANTISI GÖNDER 📧",
+                        fontWeight = FontWeight.Bold, fontSize = 11.sp
                     )
                 }
             }
@@ -337,112 +339,7 @@ fun ProfileScreen(
             }
         }
 
-        // ─── GÜVENLİK SORUSU DOĞRULAMA MODALI ─────────────────────────────────
-        if (showChangeAdultPasswordModal) {
-            AlertDialog(
-                onDismissRequest = { showChangeAdultPasswordModal = false },
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFF7C3AED))
-                        Text("ADULT ŞİFRESİ DEĞİŞTİR", fontWeight = FontWeight.Black, fontSize = 17.sp, color = Color.Black)
-                    }
-                },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        // Güvenlik sorusu kutusu
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color(0xFFF3F0FF))
-                                .padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("🔐 Güvenlik Sorusu", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED), letterSpacing = 0.5.sp)
-                            Text(challengeQuestion, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                        }
 
-                        OutlinedTextField(
-                            value = challengeAnswer,
-                            onValueChange = { challengeAnswer = it },
-                            label = { Text("Cevabınız") },
-                            placeholder = { Text("Cevabınızı yazın") },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF7C3AED),
-                                unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        OutlinedTextField(
-                            value = newAdultPasswordInput,
-                            onValueChange = { newAdultPasswordInput = it },
-                            label = { Text("Yeni Adult Şifresi") },
-                            placeholder = { Text("Yeni şifreniz") },
-                            singleLine = true,
-                            visualTransformation = PasswordVisualTransformation(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF7C3AED),
-                                unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            if (challengeAnswer.isBlank()) {
-                                Toast.makeText(context, "Lütfen güvenlik sorusunu cevaplayın", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            if (newAdultPasswordInput.isEmpty()) {
-                                Toast.makeText(context, "Lütfen yeni Adult şifrenizi girin", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            isVerifying = true
-                            coroutineScope.launch {
-                                try {
-                                    val isValid = repository.verifySecurityAnswer(challengeQuestion, challengeAnswer)
-                                    if (isValid) {
-                                        adultPassword = newAdultPasswordInput
-                                        repository.updateProfile(displayName, nickname, selectedGender, birthDate, newAdultPasswordInput)
-                                        Toast.makeText(context, "Adult şifreniz başarıyla güncellendi! 🔒", Toast.LENGTH_SHORT).show()
-                                        showChangeAdultPasswordModal = false
-                                    } else {
-                                        Toast.makeText(context, "⚠️ Güvenlik sorusu cevabı hatalı!", Toast.LENGTH_LONG).show()
-                                    }
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                    Toast.makeText(context, "Hata: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                                } finally {
-                                    isVerifying = false
-                                }
-                            }
-                        },
-                        enabled = !isVerifying,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED), contentColor = Color.White),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth().height(50.dp)
-                    ) {
-                        if (isVerifying) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
-                        } else {
-                            Text("DOĞRULA VE KAYDET 🔒", fontWeight = FontWeight.Black)
-                        }
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showChangeAdultPasswordModal = false }, modifier = Modifier.fillMaxWidth()) {
-                        Text("İPTAL", color = Color.Black.copy(alpha = 0.4f), fontWeight = FontWeight.Bold)
-                    }
-                },
-                containerColor = Color.White,
-                shape = RoundedCornerShape(24.dp)
-            )
-        }
     }
 }
 
