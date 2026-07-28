@@ -18,7 +18,14 @@ import com.google.firebase.storage.FirebaseStorage
 object FirebaseConfig {
     fun initialize(context: Context) {
         if (FirebaseApp.getApps(context).isEmpty()) {
-            FirebaseApp.initializeApp(context)
+            val options = FirebaseOptions.Builder()
+                .setApiKey("AIzaSyBChPtWYyMwI0crZd2cVFAky3V60-uvStE")
+                .setApplicationId("1:908513940709:android:ae265db40e8f7a2422700c")
+                .setProjectId("unmask-app-2026")
+                .setStorageBucket("unmask-app-2026.firebasestorage.app")
+                .setGcmSenderId("908513940709")
+                .build()
+            FirebaseApp.initializeApp(context, options)
         }
     }
 
