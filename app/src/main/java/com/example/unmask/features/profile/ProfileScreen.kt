@@ -195,16 +195,20 @@ fun ProfileScreen(
                     Text(text = "ADULT OYUN ŞİFRESİ", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black.copy(alpha = 0.4f), letterSpacing = 1.sp)
                 }
 
+                val isPasswordAlreadySet = remember(user) { !user?.adultPassword.isNullOrBlank() }
                 OutlinedTextField(
                     value = adultPassword,
                     onValueChange = { adultPassword = it },
-                    placeholder = { Text("Şifre belirleyin (İsteğe bağlı)") },
+                    placeholder = { Text(if (isPasswordAlreadySet) "Şifre Kilitli 🔒 (Sıfırlama e-postası kullanın)" else "Şifre belirleyin (İsteğe bağlı)") },
                     singleLine = true,
-                    enabled = true,
+                    enabled = !isPasswordAlreadySet,
                     visualTransformation = PasswordVisualTransformation(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = Color.Black,
                         unfocusedTextColor = Color.Black,
+                        disabledTextColor = Color.Black.copy(alpha = 0.6f),
+                        disabledBorderColor = Color.Black.copy(alpha = 0.1f),
+                        disabledContainerColor = Color(0xFFF3F4F6),
                         focusedBorderColor = Color(0xFF7C3AED),
                         unfocusedBorderColor = Color.Black.copy(alpha = 0.15f),
                         focusedContainerColor = Color.White,

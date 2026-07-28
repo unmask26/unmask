@@ -410,15 +410,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             adultPassword = adultPassword
         )
 
-        _currentUser.value = updatedProfile
-
         if (uid != "offline_demo_user") {
-            try {
-                firestore.collection("users").document(uid).set(updatedProfile).await()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            firestore.collection("users").document(uid).set(updatedProfile).await()
         }
+        _currentUser.value = updatedProfile
         return updatedProfile
     }
 
