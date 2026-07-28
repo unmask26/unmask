@@ -31,7 +31,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.unmask.data.DataRepository
@@ -487,11 +490,11 @@ private fun SecurityQuestionSelector(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
-            .border(1.dp, Color.Black.copy(alpha = 0.06f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color.Black.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Soru $index", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED).copy(alpha = 0.7f), letterSpacing = 0.5.sp)
+        Text("Soru $index", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED), letterSpacing = 0.5.sp)
 
         // Dropdown selector
         ExposedDropdownMenuBox(
@@ -502,11 +505,16 @@ private fun SecurityQuestionSelector(
                 value = selectedQuestion,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Soruyu seçin") },
+                label = { Text("Soruyu seçin", color = Color.Black.copy(alpha = 0.6f)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showDropdown) },
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color.Black,
+                    unfocusedTextColor = Color.Black,
+                    disabledTextColor = Color.Black,
                     focusedBorderColor = Color(0xFF7C3AED),
-                    unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
+                    unfocusedBorderColor = Color.Black.copy(alpha = 0.15f),
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth().menuAnchor()
@@ -522,7 +530,8 @@ private fun SecurityQuestionSelector(
                             Text(
                                 text = q,
                                 color = if (isDisabled) Color.Gray else Color.Black,
-                                fontSize = 13.sp
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         },
                         enabled = !isDisabled,
@@ -535,12 +544,17 @@ private fun SecurityQuestionSelector(
         OutlinedTextField(
             value = answer,
             onValueChange = onAnswerChange,
-            label = { Text("Cevabınız") },
+            label = { Text("Cevabınız", color = Color.Black.copy(alpha = 0.6f)) },
             placeholder = { Text("Cevabınızı yazın") },
             singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
             colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Color.Black,
+                unfocusedTextColor = Color.Black,
                 focusedBorderColor = Color(0xFF7C3AED),
-                unfocusedBorderColor = Color.Black.copy(alpha = 0.1f)
+                unfocusedBorderColor = Color.Black.copy(alpha = 0.15f),
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White
             ),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()

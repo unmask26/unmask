@@ -53,7 +53,7 @@ fun OyunScreen(
     onNavigateToQR: (String?) -> Unit,
     onMenuClick: () -> Unit
 ) {
-    var showOnlineSection by remember(initialOnlineCategory) { mutableStateOf(initialOnlineCategory != null) }
+    var showOnlineSection by remember(initialOnlineCategory) { mutableStateOf(true) }
     
     val activeSession by repository.observeActiveSession(user?.uid ?: "").collectAsState(initial = null)
     LaunchedEffect(activeSession?.id) {
@@ -62,16 +62,7 @@ fun OyunScreen(
         }
     }
     
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val dotAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
+
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     var notificationMessage by remember { mutableStateOf<String?>(null) }
     var showPurchaseModal by remember { mutableStateOf<Game?>(null) }
@@ -231,7 +222,6 @@ fun OyunScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
-                                        .graphicsLayer { alpha = dotAlpha }
                                         .background(Color(0xFF10B981), CircleShape)
                                 )
                                 Text(
@@ -274,8 +264,17 @@ fun OyunScreen(
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     if (leftCat.name == "ADULT") {
-                                        pendingCategory = leftCat.name
-                                        showPasswordPrompt = true
+                                        if (user?.isUserAdult == true) {
+                                            if (!user.adultPassword.isNullOrBlank()) {
+                                                pendingCategory = leftCat.name
+                                                showPasswordPrompt = true
+                                            } else {
+                                                selectedCategory = leftCat.name
+                                            }
+                                        } else {
+                                            pendingCategory = leftCat.name
+                                            showPasswordPrompt = true
+                                        }
                                     } else {
                                         selectedCategory = leftCat.name
                                     }
@@ -291,8 +290,17 @@ fun OyunScreen(
                                     modifier = Modifier.weight(1f),
                                     onClick = {
                                         if (rightCat.name == "ADULT") {
-                                            pendingCategory = rightCat.name
-                                            showPasswordPrompt = true
+                                            if (user?.isUserAdult == true) {
+                                                if (!user.adultPassword.isNullOrBlank()) {
+                                                    pendingCategory = rightCat.name
+                                                    showPasswordPrompt = true
+                                                } else {
+                                                    selectedCategory = rightCat.name
+                                                }
+                                            } else {
+                                                pendingCategory = rightCat.name
+                                                showPasswordPrompt = true
+                                            }
                                         } else {
                                             selectedCategory = rightCat.name
                                         }

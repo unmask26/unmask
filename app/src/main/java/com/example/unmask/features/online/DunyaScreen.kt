@@ -220,30 +220,54 @@ fun DunyaScreen(
             ) {
                 if (selectedOnlineCategory == null) {
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.Black
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "ÇEVRİMİÇİ LOBİLER",
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.Black
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Oynamak istediğiniz lobi kategorisini seçin.",
+                                fontSize = 12.sp,
+                                color = Color.Black.copy(alpha = 0.5f),
+                                fontWeight = FontWeight.Bold
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "ÇEVRİMİÇİ LOBİLER",
-                            fontSize = 32.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color.Black
-                        )
+                        Button(
+                            onClick = onBack,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(50),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color(0xFFEF4444), CircleShape)
+                                )
+                                Text(
+                                    text = "OFFLINE",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Oynamak istediğiniz lobi kategorisini seçin.",
-                        fontSize = 13.sp,
-                        color = Color.Black.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Bold
-                    )
                     Spacer(modifier = Modifier.height(24.dp))
 
                     LazyColumn(
@@ -263,8 +287,17 @@ fun DunyaScreen(
                                     modifier = Modifier.weight(1f),
                                     onClick = {
                                         if (leftCat.key == "adult") {
-                                            pendingCategory = leftCat.key
-                                            showPasswordPrompt = true
+                                            if (user.isUserAdult) {
+                                                if (!user.adultPassword.isNullOrBlank()) {
+                                                    pendingCategory = leftCat.key
+                                                    showPasswordPrompt = true
+                                                } else {
+                                                    selectedOnlineCategory = leftCat.key
+                                                }
+                                            } else {
+                                                pendingCategory = leftCat.key
+                                                showPasswordPrompt = true
+                                            }
                                         } else {
                                             selectedOnlineCategory = leftCat.key
                                         }
@@ -280,8 +313,17 @@ fun DunyaScreen(
                                         modifier = Modifier.weight(1f),
                                         onClick = {
                                             if (rightCat.key == "adult") {
-                                                pendingCategory = rightCat.key
-                                                showPasswordPrompt = true
+                                                if (user.isUserAdult) {
+                                                    if (!user.adultPassword.isNullOrBlank()) {
+                                                        pendingCategory = rightCat.key
+                                                        showPasswordPrompt = true
+                                                    } else {
+                                                        selectedOnlineCategory = rightCat.key
+                                                    }
+                                                } else {
+                                                    pendingCategory = rightCat.key
+                                                    showPasswordPrompt = true
+                                                }
                                             } else {
                                                 selectedOnlineCategory = rightCat.key
                                             }
@@ -426,9 +468,9 @@ fun DunyaScreen(
                 }
 
                 if (showPasswordPrompt) {
+                    val isUserAdult = user.isUserAdult
                     val hasAdultPassword = !user.adultPassword.isNullOrBlank()
-                    // Giriş engellendi mi? (isAdult=false VEYA şifre set edilmemiş)
-                    val isBlocked = !user.isAdult || !hasAdultPassword
+                    val isBlocked = !isUserAdult
 
                     AlertDialog(
                         onDismissRequest = {
@@ -439,7 +481,7 @@ fun DunyaScreen(
                         title = { Text("+18 İçerik Doğrulaması", fontWeight = FontWeight.Bold) },
                         text = {
                             Column {
-                                if (!user.isAdult) {
+                                if (!isUserAdult) {
                                     Icon(
                                         imageVector = Icons.Default.Timer,
                                         contentDescription = null,
@@ -452,20 +494,7 @@ fun DunyaScreen(
                                         "Profil ayarlarından doğum tarihinizi girerek yaş doğrulaması yapmanız gerekmektedir.",
                                         fontSize = 14.sp
                                     )
-                                } else if (!hasAdultPassword) {
-                                    Icon(
-                                        imageVector = Icons.Default.Timer,
-                                        contentDescription = null,
-                                        tint = Color(0xFFF59E0B),
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "Adult içeriğe erişmek için bir şifre oluşturmanız gerekmektedir.\n\n" +
-                                        "Profil ayarlarından adult içerik şifrenizi belirleyiniz.",
-                                        fontSize = 14.sp
-                                    )
-                                } else {
+                                } else if (hasAdultPassword) {
                                     Text("Bu kategori +18 içerik barındırmaktadır. Profilinizde kayıtlı şifrenizi giriniz.")
                                     Spacer(modifier = Modifier.height(8.dp))
                                     TextField(
@@ -481,12 +510,13 @@ fun DunyaScreen(
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text("Hatalı şifre! Lütfen tekrar deneyin.", color = Color.Red, fontSize = 12.sp)
                                     }
+                                } else {
+                                    Text("Doğrulama başarılı. Kategoriye erişebilirsiniz.")
                                 }
                             }
                         },
                         confirmButton = {
                             if (isBlocked) {
-                                // Sadece kapat — giriş yok
                                 Button(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
                                     onClick = {
@@ -495,8 +525,7 @@ fun DunyaScreen(
                                         passwordError = false
                                     }
                                 ) { Text("TAMAM") }
-                            } else {
-                                // Şifre doğrulama
+                            } else if (hasAdultPassword) {
                                 Button(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
                                     onClick = {
@@ -508,6 +537,16 @@ fun DunyaScreen(
                                         } else {
                                             passwordError = true
                                         }
+                                    }
+                                ) { Text("GİRİŞ") }
+                            } else {
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                                    onClick = {
+                                        showPasswordPrompt = false
+                                        selectedOnlineCategory = pendingCategory
+                                        inputPassword = ""
+                                        passwordError = false
                                     }
                                 ) { Text("GİRİŞ") }
                             }

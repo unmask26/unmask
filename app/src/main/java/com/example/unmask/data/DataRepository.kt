@@ -39,7 +39,7 @@ interface DataRepository {
     val currentFirebaseUser: FirebaseUser?
     
     suspend fun loginAnonymously(): UserProfile
-    suspend fun loginWithCredential(credential: AuthCredential): UserProfile
+    suspend fun loginWithCredential(credential: AuthCredential, googleBirthDate: String = ""): UserProfile
     suspend fun logout()
     
     suspend fun updateProfile(displayName: String, nickname: String, gender: String, birthDate: String, adultPassword: String = ""): UserProfile
@@ -315,24 +315,48 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         }
     }
 
-    override suspend fun loginWithCredential(credential: AuthCredential): UserProfile {
+    override suspend fun loginWithCredential(credential: AuthCredential, googleBirthDate: String): UserProfile {
         return try {
             val result = auth.signInWithCredential(credential).await()
             val uid = result.user!!.uid
-            
+
+            fun calculateIsAdult(bDate: String): Boolean {
+                return try {
+                    if (bDate.isEmpty()) return false
+                    val parts = bDate.split("-")
+                    val birthYear = parts[0].toInt()
+                    val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+                    (currentYear - birthYear) >= 18
+                } catch (e: Exception) {
+                    false
+                }
+            }
+
             try {
                 val doc = firestore.collection("users").document(uid).get().await()
                 if (doc.exists()) {
-                    val profile = doc.toObject(UserProfile::class.java)!!
+                    var profile = doc.toObject(UserProfile::class.java)!!
+                    if (profile.birthDate.isEmpty() && googleBirthDate.isNotEmpty()) {
+                        val isAdultCalculated = calculateIsAdult(googleBirthDate)
+                        profile = profile.copy(birthDate = googleBirthDate, isAdult = isAdultCalculated)
+                        try {
+                            firestore.collection("users").document(uid).update(
+                                mapOf("birthDate" to googleBirthDate, "isAdult" to isAdultCalculated)
+                            ).await()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
                     _currentUser.value = profile
                     profile
                 } else {
+                    val isAdultCalculated = calculateIsAdult(googleBirthDate)
                     val profile = UserProfile(
                         uid = uid,
                         displayName = result.user!!.displayName ?: "Oyuncu",
                         gender = "Erkek",
-                        birthDate = "",
-                        isAdult = false
+                        birthDate = googleBirthDate,
+                        isAdult = isAdultCalculated
                     )
                     firestore.collection("users").document(uid).set(profile).await()
                     _currentUser.value = profile
@@ -341,12 +365,13 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             } catch (firestoreEx: Exception) {
                 firestoreEx.printStackTrace()
                 // Graceful fallback: Google login succeeded, so use Google details locally if Firestore has Permission Denied
+                val isAdultCalculated = calculateIsAdult(googleBirthDate)
                 val profile = UserProfile(
                     uid = uid,
                     displayName = result.user?.displayName ?: "Oyuncu",
                     gender = "Erkek",
-                    birthDate = "",
-                    isAdult = false
+                    birthDate = googleBirthDate,
+                    isAdult = isAdultCalculated
                 )
                 _currentUser.value = profile
                 profile
@@ -372,14 +397,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val current = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
         val uid = current.uid
         
-        val isAdult = try {
-            val parts = birthDate.split("-")
-            val birthYear = parts[0].toInt()
-            val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-            (currentYear - birthYear) >= 18
-        } catch (e: Exception) {
-            false
-        }
+        val tempProfile = current.copy(birthDate = birthDate)
+        val isAdult = tempProfile.isUserAdult
 
         val updatedProfile = current.copy(
             displayName = displayName,
@@ -394,7 +413,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
         if (uid != "offline_demo_user") {
             try {
-                firestore.collection("users").document(uid).set(updatedProfile)
+                firestore.collection("users").document(uid).set(updatedProfile).await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }

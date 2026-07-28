@@ -45,7 +45,31 @@ data class UserProfile(
     val ratingCount: Int = 0,
     val totalRating: Int = 0,
     val securityAnswers: Map<String, String> = emptyMap()
-)
+) {
+    val isUserAdult: Boolean
+        get() {
+            if (isAdult) return true
+            if (birthDate.isBlank()) return false
+            return try {
+                val parts = birthDate.trim().split("-", ".", "/")
+                if (parts.size != 3) return false
+                val (year, month, day) = if (parts[0].length == 4) {
+                    Triple(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+                } else {
+                    Triple(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
+                }
+                val calBirth = java.util.Calendar.getInstance().apply {
+                    set(year, month - 1, day, 0, 0, 0)
+                }
+                val cal18Mins = java.util.Calendar.getInstance().apply {
+                    add(java.util.Calendar.YEAR, -18)
+                }
+                !calBirth.after(cal18Mins)
+            } catch (e: Exception) {
+                false
+            }
+        }
+}
 
 @Serializable
 data class Memory(
