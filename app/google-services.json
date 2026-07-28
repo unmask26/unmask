@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "908513940709",
+    "project_id": "unmask-app-2026",
+    "storage_bucket": "unmask-app-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:908513940709:android:ae265db40e8f7a2422700c",
+        "android_client_info": {
+          "package_name": "unmask.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "908513940709-0lr68gf4ggn90srhc7cldjhubvaak383.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "unmask.app",
+            "certificate_hash": "917d9de7f3cd0bdd053dbcf34ed78b4901a0aca7"
+          }
+        },
+        {
+          "client_id": "908513940709-i315lrff1g0eu5eqh9map071cs0735sn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "unmask.app",
+            "certificate_hash": "be66707dce8f1e6e517c50ce70197022599893d8"
+          }
+        },
+        {
+          "client_id": "908513940709-beipp9gvcnrrbnat1u55gh22eh7u7bfj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBChPtWYyMwI0crZd2cVFAky3V60-uvStE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "908513940709-beipp9gvcnrrbnat1u55gh22eh7u7bfj.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

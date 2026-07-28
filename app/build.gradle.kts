@@ -9,7 +9,7 @@ android {
     namespace = "com.example.unmask"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.socialalarm"
+        applicationId = "unmask.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

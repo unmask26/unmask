@@ -237,9 +237,9 @@ fun LoginScreen(
                         onClick = {
                             isLoading = true
                             try {
-                                // Default Web Client ID is linked to messagingSenderId in config: 242033696510
+                                // Default Web Client ID for unmask-app-2026 project
                                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                                    .requestIdToken("242033696510-ph3anvcea6j2f6tsaggf4oc1scuuipj0.apps.googleusercontent.com")
+                                    .requestIdToken("908513940709-beipp9gvcnrrbnat1u55gh22eh7u7bfj.apps.googleusercontent.com")
                                     .requestEmail()
                                     .requestScopes(Scope("https://www.googleapis.com/auth/user.birthday.read"))
                                     .build()
