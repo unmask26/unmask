@@ -148,17 +148,7 @@ fun CameraTaskScreen(
         }
     }
 
-    // Blinking REC dot animation
-    val infiniteTransition = rememberInfiniteTransition(label = "rec_blink")
-    val alphaAnim by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(500, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "alpha"
-    )
+
 
     // Camera Video Capture references
     var videoCaptureState by remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
@@ -499,7 +489,6 @@ fun CameraTaskScreen(
                     modifier = Modifier
                         .statusBarsPadding()
                         .padding(top = 24.dp, start = 20.dp)
-                        .graphicsLayer { alpha = alphaAnim }
                         .background(Color.Red, RoundedCornerShape(50))
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                         .align(Alignment.TopStart),
