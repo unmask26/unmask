@@ -157,7 +157,13 @@ fun LoginScreen(
                     Toast.makeText(context, "Google Girişi Başarılı!", Toast.LENGTH_SHORT).show()
                     onLoginSuccess()
                 } catch (e: Exception) {
-                    Toast.makeText(context, "Giriş hatası: ${e.message}", Toast.LENGTH_LONG).show()
+                    Log.e("GoogleSignIn", "Firebase Auth login error: ${e.message}", e)
+                    val msg = e.message ?: ""
+                    if (msg.contains("disabled", ignoreCase = true) || msg.contains("provider", ignoreCase = true)) {
+                        Toast.makeText(context, "Firebase Hatası: Lütfen Firebase Konsolunda Authentication > Sign-in method > Google sağlayıcısını Etkinleştirin (Enable).", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context, "Giriş hatası: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    }
                 } finally {
                     isLoading = false
                 }
