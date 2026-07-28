@@ -529,13 +529,16 @@ fun DunyaScreen(
                                 Button(
                                     colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
                                     onClick = {
-                                        if (inputPassword == user.adultPassword) {
-                                            showPasswordPrompt = false
-                                            selectedOnlineCategory = pendingCategory
-                                            inputPassword = ""
-                                            passwordError = false
-                                        } else {
-                                            passwordError = true
+                                        coroutineScope.launch {
+                                            val isValid = repository.verifyAndUpdateAdultPassword(inputPassword)
+                                            if (isValid) {
+                                                showPasswordPrompt = false
+                                                selectedOnlineCategory = pendingCategory
+                                                inputPassword = ""
+                                                passwordError = false
+                                            } else {
+                                                passwordError = true
+                                            }
                                         }
                                     }
                                 ) { Text("GİRİŞ") }

@@ -492,16 +492,19 @@ fun OyunScreen(
                     }
                 },
                 confirmButton = {
+                    val coroutineScope = rememberCoroutineScope()
                     Button(
                         onClick = {
-                            val savedPassword = user?.adultPassword ?: ""
-                            if (inputPassword == savedPassword) {
-                                selectedCategory = pendingCategory
-                                showPasswordPrompt = false
-                                inputPassword = ""
-                                passwordError = false
-                            } else {
-                                passwordError = true
+                            coroutineScope.launch {
+                                val isValid = repository.verifyAndUpdateAdultPassword(inputPassword)
+                                if (isValid) {
+                                    selectedCategory = pendingCategory
+                                    showPasswordPrompt = false
+                                    inputPassword = ""
+                                    passwordError = false
+                                } else {
+                                    passwordError = true
+                                }
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Black, contentColor = Color.White),

@@ -101,6 +101,7 @@ interface DataRepository {
     suspend fun verifySecurityAnswer(question: String, answer: String): Boolean
     fun getStoredSecurityQuestions(): Map<String, String>
     suspend fun sendPasswordResetEmail(email: String)
+    suspend fun verifyAndUpdateAdultPassword(inputPassword: String): Boolean
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -1406,6 +1407,32 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
     override suspend fun sendPasswordResetEmail(email: String) {
         auth.sendPasswordResetEmail(email).await()
+    }
+
+    override suspend fun verifyAndUpdateAdultPassword(inputPassword: String): Boolean {
+        val user = _currentUser.value ?: return false
+        val savedPassword = user.adultPassword ?: ""
+        
+        if (savedPassword.isNotEmpty() && inputPassword == savedPassword) {
+            return true
+        }
+
+        if (savedPassword.isEmpty()) {
+            return true
+        }
+
+        val email = auth.currentUser?.email
+        if (!email.isNullOrEmpty()) {
+            try {
+                val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, inputPassword)
+                auth.currentUser?.reauthenticate(credential)?.await()
+                updateProfile(user.displayName, user.nickname ?: "", user.gender, user.birthDate, inputPassword)
+                return true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return false
     }
 
     private suspend fun sendDirectEmail(toEmail: String, code: String) {
