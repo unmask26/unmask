@@ -19,12 +19,12 @@ data class CategoryInfo(
 object Constants {
     const val CLOUDFLARE_WORKER_URL = "https://unmask-api.kullaniciadi.workers.dev/upload"
 
-    // Cloudflare R2 Credentials for Yöntem B (Direct S3 client upload)
-    const val CLOUDFLARE_R2_ACCESS_KEY_ID = "3567cb11308d9c134783bb446586c0f2"
-    const val CLOUDFLARE_R2_SECRET_ACCESS_KEY = "7b8451a4088c2b8aa126a31681a50e6c9873ce644cb4b568fcf2ba24c29f9a23"
-    const val CLOUDFLARE_R2_ENDPOINT = "https://78541d32b9d0136bfdd5e8d704962c7b.r2.cloudflarestorage.com"
-    const val CLOUDFLARE_R2_BUCKET_NAME = "unmask"
-    const val CLOUDFLARE_R2_PUBLIC_URL_PREFIX = "https://pub-82ef6a814f5a4f3890ae3a9019537321.r2.dev"
+    // Cloudflare R2 Credentials for unmask-media bucket
+    const val CLOUDFLARE_R2_ACCESS_KEY_ID = "204f31ebb70c94820bf9ba05010ce988"
+    const val CLOUDFLARE_R2_SECRET_ACCESS_KEY = "b5209849f68794ed9e0bf326b99efb132211c144faf16d39b4d1c3d855a7908e"
+    const val CLOUDFLARE_R2_ENDPOINT = "https://16cc0e54adb7da4e63569465732c7fd3.r2.cloudflarestorage.com"
+    const val CLOUDFLARE_R2_BUCKET_NAME = "unmask-media"
+    const val CLOUDFLARE_R2_PUBLIC_URL_PREFIX = "https://pub-19fc7d3b5fd346469c66b68b27cb61e3.r2.dev"
 
     val CATEGORIES = listOf(
         CategoryInfo("SPOR", Color(0xFF10B981), "SPOR"), // bg-emerald-500
