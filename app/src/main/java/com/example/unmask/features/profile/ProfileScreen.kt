@@ -41,16 +41,6 @@ import com.example.unmask.data.DataRepository
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
-// Güvenlik soruları listesi
-val SECURITY_QUESTIONS = listOf(
-    "İlk öğretmeninin adı nedir?",
-    "İlk evcil hayvanının ismi nedir?",
-    "Hatırladığın okul numaran nedir?",
-    "Annenin kızlık soyadı nedir?",
-    "Doğduğun şehir neresidir?",
-    "En sevdiğin çocukluk oyuncağı neydi?"
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
@@ -70,16 +60,6 @@ fun ProfileScreen(
     var adultPassword by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Security questions state
-    var selectedQuestion1 by remember { mutableStateOf(SECURITY_QUESTIONS[0]) }
-    var answer1 by remember { mutableStateOf("") }
-    var selectedQuestion2 by remember { mutableStateOf(SECURITY_QUESTIONS[1]) }
-    var answer2 by remember { mutableStateOf("") }
-    var showQ1Dropdown by remember { mutableStateOf(false) }
-    var showQ2Dropdown by remember { mutableStateOf(false) }
-
-
-
     LaunchedEffect(user) {
         val u = user
         if (u != null) {
@@ -89,18 +69,6 @@ fun ProfileScreen(
                 selectedGender = u.gender
                 birthDate = u.birthDate
                 adultPassword = u.adultPassword ?: ""
-                val savedAnswers = u.securityAnswers
-                if (savedAnswers.isNotEmpty()) {
-                    val keys = savedAnswers.keys.toList()
-                    if (keys.isNotEmpty()) {
-                        selectedQuestion1 = keys[0]
-                        answer1 = savedAnswers[keys[0]] ?: ""
-                    }
-                    if (keys.size > 1) {
-                        selectedQuestion2 = keys[1]
-                        answer2 = savedAnswers[keys[1]] ?: ""
-                    }
-                }
                 if (u.birthDate.isNotEmpty()) {
                     hasInitialized = true
                 }
@@ -121,22 +89,11 @@ fun ProfileScreen(
             Toast.makeText(context, "Lütfen doğum tarihinizi seçin", Toast.LENGTH_SHORT).show()
             return
         }
-        if (answer1.trim().isEmpty() || answer2.trim().isEmpty()) {
-            Toast.makeText(context, "Lütfen her iki güvenlik sorusunu da cevaplayın", Toast.LENGTH_SHORT).show()
-            return
-        }
-        if (selectedQuestion1 == selectedQuestion2) {
-            Toast.makeText(context, "Lütfen farklı iki güvenlik sorusu seçin", Toast.LENGTH_SHORT).show()
-            return
-        }
         coroutineScope.launch {
             isLoading = true
             try {
                 repository.updateProfile(displayName, nickname, selectedGender, birthDate, adultPassword)
-                repository.saveSecurityAnswers(
-                    mapOf(selectedQuestion1 to answer1, selectedQuestion2 to answer2)
-                )
-                Toast.makeText(context, "Profil kaydedildi!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Profil başarıyla kaydedildi!", Toast.LENGTH_SHORT).show()
                 onProfileSaved()
             } catch (e: Exception) {
                 Toast.makeText(context, "Kayıt hatası: ${e.message}", Toast.LENGTH_LONG).show()
@@ -229,40 +186,7 @@ fun ProfileScreen(
                 }
             }
 
-            // ─── GÜVENLİK SORULARI ───────────────────────────────────────────────
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = Color(0xFF7C3AED).copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-                    Text(text = "GÜVENLİK SORULARI", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED).copy(alpha = 0.7f), letterSpacing = 1.sp)
-                }
-                Text(text = "Bu cevaplar Adult şifrenizi değiştirmek için kullanılır.", fontSize = 12.sp, color = Color.Black.copy(alpha = 0.5f))
 
-                // Soru 1
-                SecurityQuestionSelector(
-                    index = 1,
-                    selectedQuestion = selectedQuestion1,
-                    answer = answer1,
-                    allQuestions = SECURITY_QUESTIONS,
-                    disabledQuestion = selectedQuestion2,
-                    showDropdown = showQ1Dropdown,
-                    onDropdownToggle = { showQ1Dropdown = !showQ1Dropdown },
-                    onQuestionSelect = { selectedQuestion1 = it; showQ1Dropdown = false },
-                    onAnswerChange = { answer1 = it }
-                )
-
-                // Soru 2
-                SecurityQuestionSelector(
-                    index = 2,
-                    selectedQuestion = selectedQuestion2,
-                    answer = answer2,
-                    allQuestions = SECURITY_QUESTIONS,
-                    disabledQuestion = selectedQuestion1,
-                    showDropdown = showQ2Dropdown,
-                    onDropdownToggle = { showQ2Dropdown = !showQ2Dropdown },
-                    onQuestionSelect = { selectedQuestion2 = it; showQ2Dropdown = false },
-                    onAnswerChange = { answer2 = it }
-                )
-            }
 
             // ─── ADULT ŞİFRESİ ────────────────────────────────────────────────────
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -301,7 +225,7 @@ fun ProfileScreen(
                         coroutineScope.launch {
                             try {
                                 repository.sendPasswordResetEmail(email)
-                                Toast.makeText(context, "📧 $email adresine şifre sıfırlama bağlantısı gönderildi!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "📧 $email adresine şifre sıfırlama bağlantısı gönderildi!\n\nYeni şifrenizi yukarıdaki 'ADULT OYUN ŞİFRESİ' alanına yazıp en alttaki KAYDET butonuna basınız.", Toast.LENGTH_LONG).show()
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Sıfırlama e-postası gönderilemedi: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
                             }
@@ -317,6 +241,28 @@ fun ProfileScreen(
                         text = "E-POSTA İLE ŞİFRE SIFIRLAMA BAĞLANTISI GÖNDER 📧",
                         fontWeight = FontWeight.Bold, fontSize = 11.sp
                     )
+                }
+
+                // Şifreyi Temizle / Kaldır Butonu
+                if (adultPassword.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = {
+                            adultPassword = ""
+                            coroutineScope.launch {
+                                try {
+                                    repository.updateProfile(displayName, nickname, selectedGender, birthDate, "")
+                                    Toast.makeText(context, "Adult şifresi temizlendi! 🔓", Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Hata: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().height(44.dp)
+                    ) {
+                        Text(text = "ADULT ŞİFRESİNİ TEMİZLE (ŞİFRESİZ YAP) 🔓", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
                 }
             }
 
@@ -369,92 +315,4 @@ private fun ProfileTextField(label: String, value: String, onValueChange: (Strin
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SecurityQuestionSelector(
-    index: Int,
-    selectedQuestion: String,
-    answer: String,
-    allQuestions: List<String>,
-    disabledQuestion: String,
-    showDropdown: Boolean,
-    onDropdownToggle: () -> Unit,
-    onQuestionSelect: (String) -> Unit,
-    onAnswerChange: (String) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, Color.Black.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text("Soru $index", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7C3AED), letterSpacing = 0.5.sp)
 
-        // Dropdown selector
-        ExposedDropdownMenuBox(
-            expanded = showDropdown,
-            onExpandedChange = { onDropdownToggle() }
-        ) {
-            OutlinedTextField(
-                value = selectedQuestion,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Soruyu seçin", color = Color.Black.copy(alpha = 0.6f)) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = showDropdown) },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.Black,
-                    unfocusedTextColor = Color.Black,
-                    disabledTextColor = Color.Black,
-                    focusedBorderColor = Color(0xFF7C3AED),
-                    unfocusedBorderColor = Color.Black.copy(alpha = 0.15f),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().menuAnchor()
-            )
-            ExposedDropdownMenu(
-                expanded = showDropdown,
-                onDismissRequest = { onDropdownToggle() }
-            ) {
-                allQuestions.forEach { q ->
-                    val isDisabled = q == disabledQuestion
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = q,
-                                color = if (isDisabled) Color.Gray else Color.Black,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        },
-                        enabled = !isDisabled,
-                        onClick = { if (!isDisabled) onQuestionSelect(q) }
-                    )
-                }
-            }
-        }
-
-        OutlinedTextField(
-            value = answer,
-            onValueChange = onAnswerChange,
-            label = { Text("Cevabınız", color = Color.Black.copy(alpha = 0.6f)) },
-            placeholder = { Text("Cevabınızı yazın") },
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.Black,
-                unfocusedTextColor = Color.Black,
-                focusedBorderColor = Color(0xFF7C3AED),
-                unfocusedBorderColor = Color.Black.copy(alpha = 0.15f),
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
