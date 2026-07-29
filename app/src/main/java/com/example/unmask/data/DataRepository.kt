@@ -104,6 +104,7 @@ interface DataRepository {
     suspend fun verifyAndUpdateAdultPassword(inputPassword: String): Boolean
     suspend fun registerWithEmail(email: String, password: String, displayName: String, birthDate: String): UserProfile
     suspend fun loginWithEmail(email: String, password: String): UserProfile
+    suspend fun toggleFollowUser(targetUserName: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -365,6 +366,26 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         }
         _currentUser.value = profile
         return profile
+    }
+
+    override suspend fun toggleFollowUser(targetUserName: String) {
+        val user = _currentUser.value ?: return
+        val currentList = user.following.toMutableList()
+        if (currentList.contains(targetUserName)) {
+            currentList.remove(targetUserName)
+        } else {
+            currentList.add(targetUserName)
+        }
+        val updatedProfile = user.copy(following = currentList)
+        _currentUser.value = updatedProfile
+
+        if (user.uid != "offline_demo_user") {
+            try {
+                firestore.collection("users").document(user.uid).update("following", currentList).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     override suspend fun loginWithCredential(credential: AuthCredential, googleBirthDate: String): UserProfile {

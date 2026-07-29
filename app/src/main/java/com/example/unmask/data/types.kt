@@ -45,7 +45,8 @@ data class UserProfile(
     val score: Int = 100,
     val ratingCount: Int = 0,
     val totalRating: Int = 0,
-    val securityAnswers: Map<String, String> = emptyMap()
+    val securityAnswers: Map<String, String> = emptyMap(),
+    val following: List<String> = emptyList()
 ) {
     val isUserAdult: Boolean
         get() {

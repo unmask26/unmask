@@ -1,12 +1,13 @@
 package com.example.unmask.features.online
 
-import com.example.unmask.features.ar.*
+import com.example.unmask.data.DataRepository
+import com.example.unmask.data.PublicVideo
+import com.example.unmask.data.Comment
+import com.example.unmask.data.UserProfile
 import com.example.unmask.features.auth.*
 import com.example.unmask.features.game.*
 import com.example.unmask.features.lobby.*
-import com.example.unmask.features.online.*
 import com.example.unmask.features.profile.*
-
 
 import android.net.Uri
 import android.widget.VideoView
@@ -39,9 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.unmask.data.DataRepository
-import com.example.unmask.data.PublicVideo
-import com.example.unmask.data.Comment
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -120,6 +118,7 @@ fun DunyaFeedScreen(
                     onToggleMute = { isMuted = !isMuted },
                     currentTime = currentTime,
                     currentUserId = currentUserId,
+                    currentUser = currentUser,
                     repository = repository
                 )
             }
@@ -161,6 +160,7 @@ fun ReelsPageItem(
     onToggleMute: () -> Unit,
     currentTime: Long,
     currentUserId: String,
+    currentUser: UserProfile?,
     repository: DataRepository
 ) {
     val context = LocalContext.current
@@ -341,22 +341,26 @@ fun ReelsPageItem(
                     fontSize = 16.sp
                 )
 
-                // TAKİP ET Butonu
+                val isFollowing = currentUser?.following?.contains(video.userName) == true
+
+                // TAKİP ET / TAKİPTESİN Butonu
                 Button(
                     onClick = {
-                        // Eylem daha sonra tanımlanacak
+                        coroutineScope.launch {
+                            repository.toggleFollowUser(video.userName)
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.2f),
+                        containerColor = if (isFollowing) Color(0xFF10B981) else Color.White.copy(alpha = 0.2f),
                         contentColor = Color.White
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isFollowing) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f)),
                     shape = RoundedCornerShape(16.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
                     modifier = Modifier.height(28.dp)
                 ) {
                     Text(
-                        text = "TAKİP ET",
+                        text = if (isFollowing) "TAKİPTESİN ✓" else "+ TAKİP ET",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
