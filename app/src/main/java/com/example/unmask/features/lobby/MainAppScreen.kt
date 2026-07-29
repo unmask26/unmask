@@ -88,14 +88,10 @@ fun MainAppScreen(
     var lastHandledRequestId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(incomingRequests) {
-        val latest = incomingRequests.firstOrNull()
-        if (latest != null && latest.id != lastHandledRequestId && latest.status == "pending") {
+        val latest = incomingRequests.firstOrNull { it.status == "pending" }
+        if (latest != null && latest.id != lastHandledRequestId) {
             lastHandledRequestId = latest.id
             activeToastRequest = latest
-            kotlinx.coroutines.delay(10000L) // 10 saniye görünür kalır
-            if (activeToastRequest?.id == latest.id) {
-                activeToastRequest = null
-            }
         }
     }
 
@@ -320,83 +316,73 @@ fun MainAppScreen(
                     )
                 }
 
-                // 🔔 3 Saniye Sonra Otomatik Kapanan Oyun İsteği Popup Bildirimi
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = activeToastRequest != null,
-                    enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(),
-                    exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(),
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(16.dp)
-                ) {
-                    val req = activeToastRequest
-                    if (req != null) {
-                        Card(
-                            shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF8B5CF6)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                            modifier = Modifier
-                                .fillMaxWidth(0.95f)
-                                .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                                .clickable {
+                // 🔔 HANGİ SAYFADA OLURSA OLSUN TOP-LEVEL (AlertDialog) YENİ OYUN İSTEĞİ BİLDİRİMİ
+                if (activeToastRequest != null) {
+                    val req = activeToastRequest!!
+                    AlertDialog(
+                        onDismissRequest = {
+                            activeToastRequest = null
+                        },
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color(0xFF8B5CF6).copy(alpha = 0.2f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Gamepad,
+                                        contentDescription = "Game Request",
+                                        tint = Color(0xFF8B5CF6),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Text(
+                                    text = "🎮 OYUN İSTEĞİ GELDİ!",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 18.sp,
+                                    color = Color.Black
+                                )
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = "@${req.senderNickname.ifEmpty { "Rakip" }} sizinle oyun oynamak istiyor.",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black.copy(alpha = 0.8f)
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
                                     activeTab = "gecmis"
                                     activeToastRequest = null
-                                }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(14.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(Color.White.copy(alpha = 0.25f), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Gamepad,
-                                            contentDescription = "Game Request",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Column {
-                                        Text(
-                                            text = "🎮 YENİ OYUN İSTEĞİ!",
-                                            fontWeight = FontWeight.Black,
-                                            fontSize = 13.sp,
-                                            color = Color.White
-                                        )
-                                        Text(
-                                            text = "@${req.senderNickname.ifEmpty { "Rakip" }} oyun oynamak istiyor",
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White.copy(alpha = 0.95f)
-                                        )
-                                    }
-                                }
-
-                                Button(
-                                    onClick = {
-                                        activeTab = "gecmis"
-                                        activeToastRequest = null
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF8B5CF6)),
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(34.dp)
-                                ) {
-                                    Text("İNCELE 🚀", fontSize = 11.sp, fontWeight = FontWeight.Black)
-                                }
+                                Text("İSTEĞİ İNCELE & KABUL ET 🚀", fontWeight = FontWeight.Black, color = Color.White)
                             }
-                        }
-                    }
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = {
+                                    activeToastRequest = null
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("KAPAT / SONRA BAK", fontWeight = FontWeight.Bold, color = Color.Gray)
+                            }
+                        },
+                        containerColor = Color.White,
+                        shape = RoundedCornerShape(24.dp)
+                    )
                 }
 
                 // 🔴 GLOBAL RAKİP OYUNU BİTİRDİ BİLDİRİM PENCERESİ
