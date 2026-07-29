@@ -88,7 +88,7 @@ interface DataRepository {
     suspend fun addCommentToPublicVideo(videoId: String, commentText: String)
     fun getOnlineHistoryOpponents(userId: String): Flow<List<OnlineOpponentHistory>>
     fun getAllUserPresences(): Flow<List<OnlineUserPresence>>
-    suspend fun sendDirectGameRequest(senderId: String, senderNickname: String, senderGender: String, receiverId: String, receiverNickname: String, receiverGender: String = "Erkek"): String
+    suspend fun sendDirectGameRequest(senderId: String, senderNickname: String, senderGender: String, receiverId: String, receiverNickname: String, receiverGender: String = "Erkek", selectedCategory: String = ""): String
     fun observeIncomingGameRequests(userId: String): Flow<List<DirectGameRequest>>
     fun observeSentGameRequests(userId: String): Flow<List<DirectGameRequest>>
     suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String)
@@ -1414,7 +1414,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         senderGender: String,
         receiverId: String,
         receiverNickname: String,
-        receiverGender: String
+        receiverGender: String,
+        selectedCategory: String
     ): String {
         val requestId = "req-" + UUID.randomUUID().toString()
         val request = DirectGameRequest(
@@ -1425,6 +1426,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             receiverId = receiverId,
             receiverNickname = receiverNickname,
             receiverGender = receiverGender,
+            selectedCategory = selectedCategory,
             status = "pending",
             createdAt = System.currentTimeMillis()
         )

@@ -171,7 +171,8 @@ fun GecmisScreen(
                             } else {
                                 incomingRequests.forEach { req ->
                                     val isLobbyChosenByMe = req.status == "lobby_selected"
-                                    val chosenCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.uppercase()
+                                    val chosenCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.takeIf { it.isNotBlank() }?.uppercase()
+                                    val senderCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.takeIf { it.isNotBlank() }?.uppercase()
 
                                     Row(
                                         modifier = Modifier
@@ -191,7 +192,7 @@ fun GecmisScreen(
                                                 color = Color.Black
                                             )
                                             Text(
-                                                text = if (isLobbyChosenByMe) "$chosenCatName lobisi seçildi 🎮" else "Size oyun daveti gönderdi!",
+                                                text = if (!senderCatName.isNullOrBlank()) "Önerilen Lobi: $senderCatName 🎯" else "Size oyun daveti gönderdi!",
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
                                                 color = Color(0xFF7C3AED)
@@ -803,13 +804,32 @@ fun GecmisScreen(
         if (selectedRequestForLobby != null) {
             val req = selectedRequestForLobby!!
 
+            val senderCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.takeIf { it.isNotBlank() }?.uppercase()
+
             AlertDialog(
                 onDismissRequest = { selectedRequestForLobby = null },
-                title = { Text("Lobi Seç", fontWeight = FontWeight.Black) },
+                title = { Text("Lobi Seç ve Oyuna Başla", fontWeight = FontWeight.Black) },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("${req.senderNickname} oyuncusu ile hangi lobide oynamak istersiniz?")
-                        Spacer(modifier = Modifier.height(8.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (!senderCatName.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF8B5CF6).copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = "🎯 @${req.senderNickname} sizi '$senderCatName' lobisine davet etti.\nİster önerilen lobiyi kabul edin, ister başka bir lobi seçin!",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF6D28D9)
+                                )
+                            }
+                        } else {
+                            Text("@${req.senderNickname} oyuncusu ile hangi lobide oynamak istersiniz?")
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
                         categories.chunked(2).forEach { pair ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
