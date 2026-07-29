@@ -171,8 +171,13 @@ fun GecmisScreen(
                             } else {
                                 incomingRequests.forEach { req ->
                                     val isLobbyChosenByMe = req.status == "lobby_selected"
-                                    val chosenCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.takeIf { it.isNotBlank() }?.uppercase()
                                     val senderCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.takeIf { it.isNotBlank() }?.uppercase()
+                                    val senderName = req.senderNickname.ifEmpty { "Oyuncu" }
+                                    val cardMessageText = if (!senderCatName.isNullOrBlank()) {
+                                        "@$senderName size $senderCatName lobisinde oyun daveti gönderdi 🎮"
+                                    } else {
+                                        "@$senderName size oyun daveti gönderdi 🎮"
+                                    }
 
                                     Row(
                                         modifier = Modifier
@@ -186,16 +191,10 @@ fun GecmisScreen(
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = "@${req.senderNickname.ifEmpty { "Oyuncu" }}",
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 15.sp,
-                                                color = Color.Black
-                                            )
-                                            Text(
-                                                text = if (!senderCatName.isNullOrBlank()) "Önerilen Lobi: $senderCatName 🎯" else "Size oyun daveti gönderdi!",
-                                                fontSize = 11.sp,
+                                                text = cardMessageText,
                                                 fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF7C3AED)
+                                                fontSize = 13.sp,
+                                                color = Color.Black
                                             )
                                         }
 
