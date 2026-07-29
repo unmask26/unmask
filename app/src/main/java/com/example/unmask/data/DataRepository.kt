@@ -1497,6 +1497,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     !isBanned && isForMe && (req.status == "pending" || req.status == "lobby_selected")
                 }.sortedByDescending { it.createdAt }
 
+                requests.filter { it.status == "pending" }.forEach { req ->
+                    com.example.unmask.core.GameNotificationManager.showGameInviteNotification(context, req)
+                }
+
                 trySend(requests)
             }
         awaitClose { listener.remove() }
