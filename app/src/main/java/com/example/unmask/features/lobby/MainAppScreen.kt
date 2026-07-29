@@ -98,6 +98,15 @@ fun MainAppScreen(
     }
 
     var handledSessionId by remember { mutableStateOf<String?>(null) }
+    var endedGameDialogSession by remember { mutableStateOf<com.example.unmask.data.OnlineSession?>(null) }
+
+    LaunchedEffect(activeSession) {
+        val s = activeSession
+        if (s != null && s.status == "ended_by_user" && s.endedByUserId != userId) {
+            endedGameDialogSession = s
+        }
+    }
+
     LaunchedEffect(activeSession?.id) {
         val currentSessionId = activeSession?.id
         if (currentSessionId != null && currentSessionId != handledSessionId) {
@@ -363,6 +372,58 @@ fun MainAppScreen(
                             }
                         }
                     }
+                }
+
+                // 🔴 GLOBAL RAKİP OYUNU BİTİRDİ BİLDİRİM PENCERESİ
+                if (endedGameDialogSession != null) {
+                    val s = endedGameDialogSession!!
+                    val endedByName = s.endedByUserName.ifEmpty {
+                        if (s.user1Id == s.endedByUserId) s.user1Name else s.user2Name
+                    }.ifEmpty { "Rakip Oyuncu" }
+
+                    AlertDialog(
+                        onDismissRequest = {
+                            val sessId = s.id
+                            endedGameDialogSession = null
+                            coroutineScope.launch {
+                                try { repository.deleteSession(sessId) } catch (_: Exception) {}
+                            }
+                        },
+                        title = {
+                            Text(
+                                text = "🔴 RAKİP OYUNU BİTİRDİ",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 20.sp,
+                                color = Color(0xFFEF4444)
+                            )
+                        },
+                        text = {
+                            Text(
+                                text = "Rakibiniz (@$endedByName) 'OYUNU BİTİR' butonuna basarak oyunu sonlandırdı.",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black.copy(alpha = 0.8f)
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    val sessId = s.id
+                                    endedGameDialogSession = null
+                                    coroutineScope.launch {
+                                        try { repository.deleteSession(sessId) } catch (_: Exception) {}
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("ANLADIM / TAMAM", fontWeight = FontWeight.Black, color = Color.White)
+                            }
+                        },
+                        containerColor = Color.White,
+                        shape = RoundedCornerShape(24.dp)
+                    )
                 }
             }
         }

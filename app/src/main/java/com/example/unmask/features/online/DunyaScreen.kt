@@ -788,6 +788,7 @@ fun DunyaScreen(
                         val isEndedByMe = session.endedByUserId == user.uid
                         if (isEndedByMe) {
                             LaunchedEffect(Unit) {
+                                kotlinx.coroutines.delay(15000L) // Rakibin bildirimi alması için 15s bekle
                                 repository.deleteSession(session.id)
                             }
                         } else {
