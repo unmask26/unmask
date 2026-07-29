@@ -17,49 +17,12 @@ class GameNotificationService : Service() {
     private var firestoreListener: ListenerRegistration? = null
     private var isStarted = false
 
-    override fun onCreate() {
-        super.onCreate()
-        startServiceForeground()
-    }
-
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (!isStarted) {
             isStarted = true
-            startServiceForeground()
             startListeningForRequests()
         }
         return START_STICKY
-    }
-
-    private fun startServiceForeground() {
-        val channelId = "game_service_channel"
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                "Oyun Bildirim Servisi",
-                NotificationManager.IMPORTANCE_MIN
-            ).apply {
-                description = "Arka planda davet dinleme servisi"
-                setShowBadge(false)
-            }
-            manager.createNotificationChannel(channel)
-        }
-
-        val notification = NotificationCompat.Builder(this, channelId)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("UNMASK Oyun Servisi")
-            .setContentText("Davetler arka planda dinleniyor...")
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setOngoing(true)
-            .build()
-
-        try {
-            startForeground(999, notification)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 
     private fun startListeningForRequests() {

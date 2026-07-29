@@ -29,11 +29,7 @@ class MainActivity : ComponentActivity() {
 
     try {
         val serviceIntent = Intent(this, GameNotificationService::class.java)
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
-        }
+        startService(serviceIntent)
     } catch (e: Exception) {
         e.printStackTrace()
     }
