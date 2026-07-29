@@ -66,6 +66,8 @@ fun GecmisScreen(
     val allPresences by repository.getAllUserPresences().collectAsState(initial = emptyList())
     val incomingRequests by repository.observeIncomingGameRequests(userId).collectAsState(initial = emptyList())
     val sentRequests by repository.observeSentGameRequests(userId).collectAsState(initial = emptyList())
+    val activeSession by repository.observeActiveSession(userId).collectAsState(initial = null)
+    val isUserInGame = activeSession != null && activeSession?.status != "finished"
     val followedUsers = currentUserProfile?.following ?: emptyList()
 
     var selectedOpponentForRequest by remember { mutableStateOf<OnlineOpponentHistory?>(null) }
@@ -419,13 +421,19 @@ fun GecmisScreen(
                                         }
 
                                         Button(
-                                            onClick = { selectedOpponentForRequest = opp },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                                            onClick = {
+                                                if (isUserInGame) {
+                                                    Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    selectedOpponentForRequest = opp
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = if (isUserInGame) Color.Gray else Color(0xFF3B82F6)),
                                             shape = RoundedCornerShape(12.dp),
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                             modifier = Modifier.height(34.dp)
                                         ) {
-                                            Text("DAVET ET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text(if (isUserInGame) "OYUNDASINIZ ⚠️" else "DAVET ET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
@@ -512,14 +520,18 @@ fun GecmisScreen(
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Button(
                                                 onClick = {
-                                                    selectedFollowedUserForRequest = userName
+                                                    if (isUserInGame) {
+                                                        Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
+                                                    } else {
+                                                        selectedFollowedUserForRequest = userName
+                                                    }
                                                 },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                                colors = ButtonDefaults.buttonColors(containerColor = if (isUserInGame) Color.Gray else Color(0xFF8B5CF6)),
                                                 shape = RoundedCornerShape(12.dp),
                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                                 modifier = Modifier.height(34.dp)
                                             ) {
-                                                Text("DAVET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Text(if (isUserInGame) "OYUNDASINIZ ⚠️" else "DAVET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                             }
 
                                             IconButton(
