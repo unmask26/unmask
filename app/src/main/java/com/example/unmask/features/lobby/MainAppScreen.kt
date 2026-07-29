@@ -11,6 +11,8 @@ import com.example.unmask.features.profile.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -90,7 +92,7 @@ fun MainAppScreen(
         if (latest != null && latest.id != lastHandledRequestId && latest.status == "pending") {
             lastHandledRequestId = latest.id
             activeToastRequest = latest
-            kotlinx.coroutines.delay(3000L)
+            kotlinx.coroutines.delay(10000L) // 10 saniye görünür kalır
             if (activeToastRequest?.id == latest.id) {
                 activeToastRequest = null
             }
@@ -330,44 +332,67 @@ fun MainAppScreen(
                     val req = activeToastRequest
                     if (req != null) {
                         Card(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = Color(0xFF8B5CF6)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
                             modifier = Modifier
                                 .fillMaxWidth(0.95f)
+                                .border(2.dp, Color.White.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
                                 .clickable {
                                     activeTab = "gecmis"
                                     activeToastRequest = null
                                 }
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.weight(1f)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Gamepad,
-                                        contentDescription = "Game Request",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.White.copy(alpha = 0.25f), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Gamepad,
+                                            contentDescription = "Game Request",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                     Column {
                                         Text(
-                                            text = "YENİ OYUN İSTEĞİ! 🎮",
+                                            text = "🎮 YENİ OYUN İSTEĞİ!",
                                             fontWeight = FontWeight.Black,
                                             fontSize = 13.sp,
                                             color = Color.White
                                         )
                                         Text(
-                                            text = "${req.senderNickname} size oyun isteği gönderdi. (Tıkla ve Geçmiş'e git)",
-                                            fontSize = 11.sp,
-                                            color = Color.White.copy(alpha = 0.9f)
+                                            text = "@${req.senderNickname.ifEmpty { "Rakip" }} oyun oynamak istiyor",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White.copy(alpha = 0.95f)
                                         )
                                     }
+                                }
+
+                                Button(
+                                    onClick = {
+                                        activeTab = "gecmis"
+                                        activeToastRequest = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF8B5CF6)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Text("İNCELE 🚀", fontSize = 11.sp, fontWeight = FontWeight.Black)
                                 }
                             }
                         }
