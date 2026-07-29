@@ -97,9 +97,14 @@ fun MainAppScreen(
         }
     }
 
-    LaunchedEffect(activeSession) {
-        if (activeSession != null) {
+    var handledSessionId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(activeSession?.id) {
+        val currentSessionId = activeSession?.id
+        if (currentSessionId != null && currentSessionId != handledSessionId) {
+            handledSessionId = currentSessionId
             activeTab = "oyun"
+        } else if (currentSessionId == null) {
+            handledSessionId = null
         }
     }
 

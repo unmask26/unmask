@@ -244,12 +244,15 @@ fun ReelsPageItem(
                         vv.tag = video.videoUrl
                         
                         val cachedFile = com.example.unmask.data.VideoCacheManager.getCachedVideoFile(context, video.videoUrl)
-                        val videoUri = if (cachedFile != null) {
-                            Uri.fromFile(cachedFile)
-                        } else {
-                            Uri.parse(video.videoUrl)
+                        val videoUri = when {
+                            cachedFile != null -> Uri.fromFile(cachedFile)
+                            video.videoUrl.startsWith("/") -> Uri.fromFile(java.io.File(video.videoUrl))
+                            video.videoUrl.startsWith("file://") -> Uri.parse(video.videoUrl)
+                            video.videoUrl.startsWith("http://") || video.videoUrl.startsWith("https://") -> Uri.parse(video.videoUrl)
+                            else -> Uri.fromFile(java.io.File(video.videoUrl))
                         }
                         
+                        vv.setOnErrorListener { _, _, _ -> true }
                         vv.setVideoURI(videoUri)
                         
                         if (cachedFile == null) {
