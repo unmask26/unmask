@@ -3,10 +3,9 @@ package com.example.unmask.features.lobby
 import com.example.unmask.features.ar.*
 import com.example.unmask.features.auth.*
 import com.example.unmask.features.game.*
-import com.example.unmask.features.lobby.*
 import com.example.unmask.features.online.*
 import com.example.unmask.features.profile.*
-
+import android.widget.Toast
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -392,16 +391,37 @@ fun MainAppScreen(
                             }
                         },
                         confirmButton = {
-                            Button(
-                                onClick = {
-                                    activeTab = "gecmis"
-                                    activeToastRequest = null
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.fillMaxWidth()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("İSTEĞİ İNCELE & OYNA 🚀", fontWeight = FontWeight.Black, color = Color.White)
+                                Button(
+                                    onClick = {
+                                        val senderName = req.senderNickname.ifEmpty { "Oyuncu" }
+                                        coroutineScope.launch {
+                                            repository.banUser(senderName, req.id)
+                                            Toast.makeText(context, "@$senderName engellendi ve Banlananlar kutusuna eklendi!", Toast.LENGTH_SHORT).show()
+                                            activeToastRequest = null
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("BANLA 🚫", fontWeight = FontWeight.Black, color = Color.White, fontSize = 11.sp)
+                                }
+
+                                Button(
+                                    onClick = {
+                                        activeTab = "gecmis"
+                                        activeToastRequest = null
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1.5f)
+                                ) {
+                                    Text("İSTEĞİ İNCELE & OYNA 🚀", fontWeight = FontWeight.Black, color = Color.White, fontSize = 11.sp)
+                                }
                             }
                         },
                         dismissButton = {

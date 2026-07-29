@@ -198,19 +198,34 @@ fun GecmisScreen(
                                             )
                                         }
 
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                            Button(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        repository.banUser(senderName, req.id)
+                                                        Toast.makeText(context, "@$senderName engellendi ve Banlananlar kutusuna eklendi!", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                                shape = RoundedCornerShape(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(34.dp)
+                                            ) {
+                                                Text("BANLA 🚫", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                            }
+
                                             IconButton(
                                                 onClick = {
                                                     coroutineScope.launch {
                                                         repository.rejectDirectGameRequest(req.id)
                                                     }
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(32.dp)
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Default.Close,
                                                     contentDescription = "Reddet",
-                                                    tint = Color.Red
+                                                    tint = Color.Red.copy(alpha = 0.7f)
                                                 )
                                             }
 
@@ -629,6 +644,98 @@ fun GecmisScreen(
                                                     tint = Color.Red.copy(alpha = 0.7f)
                                                 )
                                             }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ─── 📦 5. BOX (EN ALT): BANLANAN KULLANICILAR ─────────────────────────
+                val bannedUsersList = currentUserProfile?.bannedUsers ?: emptyList()
+                item {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(2.dp, Color(0xFFEF4444), RoundedCornerShape(24.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(Color(0xFFEF4444), CircleShape)
+                                )
+                                Text(
+                                    text = "5. BANLANAN KULLANICILAR (${bannedUsersList.size})",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp,
+                                    color = Color.Black
+                                )
+                            }
+
+                            if (bannedUsersList.isEmpty()) {
+                                Text(
+                                    text = "Henüz engellenmiş (banlanmış) kullanıcı bulunmuyor.",
+                                    fontSize = 12.sp,
+                                    color = Color.Black.copy(alpha = 0.4f),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            } else {
+                                bannedUsersList.forEach { userName ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(Color(0xFFFEE2E2))
+                                            .border(1.dp, Color(0xFFEF4444).copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "@$userName",
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 15.sp,
+                                                color = Color.Black
+                                            )
+                                            Text(
+                                                text = "Engellendi 🚫",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFB91C1C)
+                                            )
+                                        }
+
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    repository.unbanUser(userName)
+                                                    Toast.makeText(context, "@$userName kullanıcısının engeli kaldırıldı!", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                                            shape = RoundedCornerShape(12.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(
+                                                text = "BANI KALDIR 🔓",
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 11.sp,
+                                                color = Color.White
+                                            )
                                         }
                                     }
                                 }

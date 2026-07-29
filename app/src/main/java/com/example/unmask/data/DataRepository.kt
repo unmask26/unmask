@@ -105,6 +105,8 @@ interface DataRepository {
     suspend fun registerWithEmail(email: String, password: String, displayName: String, birthDate: String): UserProfile
     suspend fun loginWithEmail(email: String, password: String): UserProfile
     suspend fun toggleFollowUser(targetUserName: String)
+    suspend fun banUser(targetUserName: String, requestId: String? = null)
+    suspend fun unbanUser(targetUserName: String)
 }
 
 class DefaultDataRepository(private val context: Context) : DataRepository {
@@ -382,6 +384,43 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         if (user.uid != "offline_demo_user") {
             try {
                 firestore.collection("users").document(user.uid).update("following", currentList).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    override suspend fun banUser(targetUserName: String, requestId: String?) {
+        val user = _currentUser.value ?: return
+        val currentList = user.bannedUsers.toMutableList()
+        if (!currentList.contains(targetUserName)) {
+            currentList.add(targetUserName)
+        }
+        val updatedProfile = user.copy(bannedUsers = currentList)
+        _currentUser.value = updatedProfile
+
+        if (user.uid != "offline_demo_user") {
+            try {
+                firestore.collection("users").document(user.uid).update("bannedUsers", currentList).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        if (!requestId.isNullOrEmpty()) {
+            rejectDirectGameRequest(requestId)
+        }
+    }
+
+    override suspend fun unbanUser(targetUserName: String) {
+        val user = _currentUser.value ?: return
+        val currentList = user.bannedUsers.toMutableList()
+        currentList.remove(targetUserName)
+        val updatedProfile = user.copy(bannedUsers = currentList)
+        _currentUser.value = updatedProfile
+
+        if (user.uid != "offline_demo_user") {
+            try {
+                firestore.collection("users").document(user.uid).update("bannedUsers", currentList).await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -1444,16 +1483,18 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 }
                 val myNickname = _currentUser.value?.nickname ?: ""
                 val myDisplayName = _currentUser.value?.displayName ?: ""
+                val myBannedUsers = _currentUser.value?.bannedUsers ?: emptyList()
 
                 val requests = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(DirectGameRequest::class.java)
                 }.filter { req ->
+                    val isBanned = myBannedUsers.contains(req.senderNickname) || myBannedUsers.contains(req.senderId)
                     val isForMe = req.receiverId == userId ||
                                   (myNickname.isNotEmpty() && req.receiverId.equals(myNickname, ignoreCase = true)) ||
                                   (myNickname.isNotEmpty() && req.receiverNickname.equals(myNickname, ignoreCase = true)) ||
                                   (myDisplayName.isNotEmpty() && req.receiverNickname.equals(myDisplayName, ignoreCase = true))
 
-                    isForMe && (req.status == "pending" || req.status == "lobby_selected")
+                    !isBanned && isForMe && (req.status == "pending" || req.status == "lobby_selected")
                 }.sortedByDescending { it.createdAt }
 
                 trySend(requests)
