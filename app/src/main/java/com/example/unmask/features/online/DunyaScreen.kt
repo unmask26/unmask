@@ -1278,8 +1278,19 @@ fun OnlineGameplayView(
                         )
                     }
                     
-                    IconButton(onClick = onCloseSession) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Exit", tint = Color.Black)
+                    Button(
+                        onClick = onCloseSession,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text(
+                            text = "OYUNU BİTİR 🔴",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
                     }
                 }
                 
