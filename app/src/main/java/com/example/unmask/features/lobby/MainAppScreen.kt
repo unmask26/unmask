@@ -127,7 +127,7 @@ fun MainAppScreen(
             val banUntil = userProfile.banUntil ?: 0L
             val now = System.currentTimeMillis()
             if (banUntil <= now) {
-                repository.updatePresence(uid, name, status = "app_open", gender = gender)
+                repository.updatePresence(uid, name, status = "idle", gender = gender)
             } else {
                 repository.updatePresence(uid, name, status = "offline", banUntil = banUntil, gender = gender)
             }
