@@ -1397,10 +1397,20 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
+                val myNickname = _currentUser.value?.nickname ?: ""
+                val myDisplayName = _currentUser.value?.displayName ?: ""
+
                 val requests = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(DirectGameRequest::class.java)
-                }.filter { it.receiverId == userId && (it.status == "pending" || it.status == "lobby_selected") }
-                 .sortedByDescending { it.createdAt }
+                }.filter { req ->
+                    val isForMe = req.receiverId == userId ||
+                                  (myNickname.isNotEmpty() && req.receiverId.equals(myNickname, ignoreCase = true)) ||
+                                  (myNickname.isNotEmpty() && req.receiverNickname.equals(myNickname, ignoreCase = true)) ||
+                                  (myDisplayName.isNotEmpty() && req.receiverNickname.equals(myDisplayName, ignoreCase = true))
+
+                    isForMe && (req.status == "pending" || req.status == "lobby_selected")
+                }.sortedByDescending { it.createdAt }
+
                 trySend(requests)
             }
         awaitClose { listener.remove() }
@@ -1413,10 +1423,18 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
+                val myNickname = _currentUser.value?.nickname ?: ""
+
                 val requests = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(DirectGameRequest::class.java)
-                }.filter { it.senderId == userId && (it.status == "pending" || it.status == "lobby_selected") }
-                 .sortedByDescending { it.createdAt }
+                }.filter { req ->
+                    val isFromMe = req.senderId == userId ||
+                                   (myNickname.isNotEmpty() && req.senderId.equals(myNickname, ignoreCase = true)) ||
+                                   (myNickname.isNotEmpty() && req.senderNickname.equals(myNickname, ignoreCase = true))
+
+                    isFromMe && (req.status == "pending" || req.status == "lobby_selected")
+                }.sortedByDescending { it.createdAt }
+
                 trySend(requests)
             }
         awaitClose { listener.remove() }
