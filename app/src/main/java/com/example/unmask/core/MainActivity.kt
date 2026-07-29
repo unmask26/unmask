@@ -8,6 +8,7 @@ import com.example.unmask.features.online.*
 import com.example.unmask.features.profile.*
 
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -37,6 +38,21 @@ class MainActivity : ComponentActivity() {
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
         if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 101)
+        }
+    }
+
+    // 🔋 LG ve Özel Üretici Pil Tasarrufu Muafiyet Kontrolü
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+        val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+        if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = android.net.Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
