@@ -1478,34 +1478,20 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         var targetUid = cleanReceiverId
         var resolvedNickname = if (cleanReceiverNickname.isNotEmpty()) cleanReceiverNickname else cleanReceiverId
 
-        // 🎯 Firestore'dan harf büyüklüğü (case-insensitive) bakmaksızın hedef kullanıcının gerçek UID'sini saptayalım
+        // ⚡ HIZLI VE ANINDA ARAMA (Tüm koleksiyonu taramak yerine doğrudan indeksli sorgu)
         try {
-            val allUsersSnapshot = firestore.collection("users").get().await()
-            val matchUser = allUsersSnapshot.documents.find { doc ->
-                val docUid = doc.id
-                val nick = doc.getString("nickname") ?: ""
-                val disp = doc.getString("displayName") ?: ""
-                docUid.equals(cleanReceiverId, ignoreCase = true) ||
-                (cleanReceiverNickname.isNotEmpty() && (nick.equals(cleanReceiverNickname, ignoreCase = true) || disp.equals(cleanReceiverNickname, ignoreCase = true))) ||
-                (cleanReceiverId.isNotEmpty() && (nick.equals(cleanReceiverId, ignoreCase = true) || disp.equals(cleanReceiverId, ignoreCase = true)))
-            }
-            if (matchUser != null) {
-                targetUid = matchUser.id
-                resolvedNickname = matchUser.getString("nickname")?.takeIf { it.isNotBlank() }
-                    ?: matchUser.getString("displayName")
-                    ?: resolvedNickname
-            } else {
-                val onlineSnap = firestore.collection("online_users").get().await()
-                val matchOnline = onlineSnap.documents.find { doc ->
-                    val uId = doc.getString("userId") ?: doc.id
-                    val uName = doc.getString("userName") ?: ""
-                    uId.equals(cleanReceiverId, ignoreCase = true) ||
-                    uName.equals(cleanReceiverNickname, ignoreCase = true) ||
-                    uName.equals(cleanReceiverId, ignoreCase = true)
-                }
-                if (matchOnline != null) {
-                    targetUid = matchOnline.getString("userId") ?: matchOnline.id
-                    resolvedNickname = matchOnline.getString("userName") ?: resolvedNickname
+            if (cleanReceiverId.length >= 20) {
+                targetUid = cleanReceiverId
+            } else if (cleanReceiverNickname.isNotEmpty()) {
+                val docs = firestore.collection("users")
+                    .whereEqualTo("nickname", cleanReceiverNickname)
+                    .limit(1)
+                    .get()
+                    .await()
+                val match = docs.documents.firstOrNull()
+                if (match != null) {
+                    targetUid = match.id
+                    resolvedNickname = match.getString("nickname") ?: resolvedNickname
                 }
             }
         } catch (e: Exception) {
@@ -1525,7 +1511,20 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             status = "pending",
             createdAt = System.currentTimeMillis()
         )
+
+        // 1. Ana istek koleksiyonuna yaz
         firestore.collection("direct_game_requests").document(requestId).set(request).await()
+
+        // 2. Alıcının kendi kişisel incoming_invites alt koleksiyonuna ANINDA yaz (Milisaniye hızında bildirim için)
+        if (targetUid.isNotEmpty() && targetUid != "offline_demo_user") {
+            try {
+                firestore.collection("users")
+                    .document(targetUid)
+                    .collection("incoming_invites")
+                    .document(requestId)
+                    .set(request)
+            } catch (_: Exception) {}
+        }
 
         // 🚀 ALICI CİHAZIN FCM TOKEN'INA PUSH BİLDİRİM GÖNDERME
         try {

@@ -34,21 +34,16 @@ class GameNotificationService : Service() {
 
         try {
             val firestore = FirebaseConfig.firestore
-            firestoreListener = firestore.collection("direct_game_requests")
+            // ⚡ ANINDA MİLİSANİYE HIZINDA BİLDİRİM: Kullanıcının kendi özel incoming_invites alt dökümanını dinle
+            firestoreListener = firestore.collection("users")
+                .document(savedUid)
+                .collection("incoming_invites")
                 .addSnapshotListener { snapshot, error ->
                     if (error != null || snapshot == null) return@addSnapshotListener
 
                     val requests = snapshot.documents.mapNotNull { doc ->
                         doc.toObject(DirectGameRequest::class.java)
-                    }.filter { req ->
-                        val reqRecId = req.receiverId.removePrefix("@").trim()
-                        val reqRecNick = req.receiverNickname.removePrefix("@").trim()
-
-                        val isForMe = (savedUid.isNotEmpty() && reqRecId.equals(savedUid, ignoreCase = true)) ||
-                                (savedNickname.isNotEmpty() && (reqRecId.equals(savedNickname, ignoreCase = true) || reqRecNick.equals(savedNickname, ignoreCase = true)))
-
-                        isForMe && req.status == "pending"
-                    }
+                    }.filter { it.status == "pending" }
 
                     for (req in requests) {
                         GameNotificationManager.showGameInviteNotification(applicationContext, req)
