@@ -693,7 +693,8 @@ fun GecmisScreen(
                                                         senderGender = currentUserProfile?.gender ?: "Erkek",
                                                         receiverId = opp.opponentId,
                                                         receiverNickname = opp.opponentName,
-                                                        receiverGender = "Erkek"
+                                                        receiverGender = "Erkek",
+                                                        selectedCategory = cat.key
                                                     )
                                                     Toast.makeText(context, "${opp.opponentName} oyuncusuna ${cat.name} isteği gönderildi!", Toast.LENGTH_SHORT).show()
                                                 } catch (e: Exception) {
@@ -763,13 +764,18 @@ fun GecmisScreen(
                                             isSendingRequest = true
                                             coroutineScope.launch {
                                                 try {
+                                                    val presence = allPresences.find { it.userName.equals(targetName, ignoreCase = true) }
+                                                    val targetUserId = presence?.userId?.ifEmpty { null } ?: targetName
+                                                    val targetGender = presence?.gender ?: "Erkek"
+
                                                     repository.sendDirectGameRequest(
                                                         senderId = userId,
                                                         senderNickname = currentUserProfile?.nickname?.ifEmpty { null } ?: currentUserProfile?.displayName ?: "Oyuncu",
                                                         senderGender = currentUserProfile?.gender ?: "Erkek",
-                                                        receiverId = targetName,
+                                                        receiverId = targetUserId,
                                                         receiverNickname = targetName,
-                                                        receiverGender = "Erkek"
+                                                        receiverGender = targetGender,
+                                                        selectedCategory = cat.key
                                                     )
                                                     Toast.makeText(context, "$targetName kullanıcısına ${cat.name} daveti gönderildi!", Toast.LENGTH_SHORT).show()
                                                 } catch (e: Exception) {
