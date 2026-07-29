@@ -108,19 +108,41 @@ fun GecmisScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = "ARKADAŞLAR",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black,
                         color = Color.Black
                     )
-                    Text(
-                        text = "İstekler, oyun geçmişiniz ve takip ettiğiniz kişiler",
-                        fontSize = 12.sp,
-                        color = Color.Black.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Medium
-                    )
+
+                    val myNickname = currentUserProfile?.nickname?.takeIf { it.isNotBlank() } ?: "Oyuncu"
+
+                    // 🟢 UYGULAMAYA GİRER GİRMEZ ÇEVRİMİÇİ OLDUĞUNU BELLİ EDEN YEŞİL ZEMİNLİ NİCKNAME ETİKETİ
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFF10B981), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFF10B981), CircleShape)
+                            )
+                            Text(
+                                text = "@$myNickname • ÇEVRİMİÇİ 🟢",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF047857)
+                            )
+                        }
+                    }
                 }
             }
 
