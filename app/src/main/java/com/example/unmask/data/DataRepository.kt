@@ -271,22 +271,38 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         return@addSnapshotListener
                     }
                     if (snapshot != null && snapshot.exists()) {
-                        _currentUser.value = snapshot.toObject(UserProfile::class.java)
+                        val profile = snapshot.toObject(UserProfile::class.java)
+                        _currentUser.value = profile
+                        if (profile != null) {
+                            saveUserToPrefs(profile)
+                        }
                     } else {
                         // Create default profile structure
-                        _currentUser.value = UserProfile(
+                        val defaultProfile = UserProfile(
                             uid = uid,
                             displayName = "Oyuncu",
                             gender = "Erkek",
                             birthDate = "",
                             isAdult = false
                         )
+                        _currentUser.value = defaultProfile
+                        saveUserToPrefs(defaultProfile)
                     }
                 }
         } catch (e: Exception) {
             e.printStackTrace()
             _currentUser.value = UserProfile(uid = uid, displayName = "Oyuncu")
         }
+    }
+
+    private fun saveUserToPrefs(profile: UserProfile) {
+        try {
+            val prefs = context.getSharedPreferences("unmask_prefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("current_user_uid", profile.uid)
+                .putString("current_user_nickname", profile.nickname ?: "")
+                .apply()
+        } catch (_: Exception) {}
     }
 
     override suspend fun loginAnonymously(): UserProfile {

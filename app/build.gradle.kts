@@ -93,6 +93,7 @@ dependencies {
   implementation(libs.firebase.firestore)
   implementation(libs.firebase.storage)
   implementation("com.google.firebase:firebase-messaging-ktx")
+  implementation("androidx.work:work-runtime-ktx:2.9.0")
 
   // Google Play Services Auth
   implementation(libs.play.services.auth)

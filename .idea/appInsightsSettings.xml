@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="unmask.app" />
+                  <option name="mobileSdkAppId" value="1:908513940709:android:ae265db40e8f7a2422700c" />
+                  <option name="projectId" value="unmask-app-2026" />
+                  <option name="projectNumber" value="908513940709" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />
