@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
 
     GameNotificationManager.createNotificationChannel(this)
+    FCMTokenManager.initAndSyncFCMToken(this)
 
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
         if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
