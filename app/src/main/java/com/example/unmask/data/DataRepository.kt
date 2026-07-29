@@ -795,6 +795,29 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         category: String
     ): String {
         val sessionId = "session-" + UUID.randomUUID().toString()
+
+        val currentTurnGender = user2Gender
+        val otherGender = user1Gender
+        val poolKey = when {
+            currentTurnGender == "Kadın" && otherGender == "Erkek" -> "kadinin_erkege"
+            currentTurnGender == "Erkek" && otherGender == "Kadın" -> "erkege_kadina"
+            currentTurnGender == "Kadın" && otherGender == "Kadın" -> "kadinin_kadina"
+            currentTurnGender == "Erkek" && otherGender == "Erkek" -> "erkege_erkege"
+            else -> "erkege_kadina"
+        }
+        val fullPool: List<String> = when (category.lowercase()) {
+            "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+            "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
+            "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
+            "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
+            "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
+            "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
+            "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
+            "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
+            else         -> emptyList()
+        }
+        val chosenText = fullPool.randomOrNull() ?: "Bir soru sorun veya bir görev verin."
+
         val session = OnlineSession(
             id = sessionId,
             user1Id = user1Id,
@@ -807,6 +830,10 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             commonCategory = category,
             selectedGameId = "online-matchmaking-game",
             currentTurn = user2Id, // Selected user gets first turn
+            activeCardCode = "ON",
+            activeTaskId = "online-task-${UUID.randomUUID()}",
+            activeTaskText = chosenText,
+            usedTaskTexts = listOf(chosenText),
             lastHeartbeat = System.currentTimeMillis()
         )
         

@@ -49,6 +49,7 @@ fun MainAppScreen(
     val customGames by repository.customGames.collectAsState(initial = emptyList())
     var activeTab by remember { mutableStateOf("oyun") }
     var activeGame by remember { mutableStateOf<Game?>(null) }
+    var selectedLobbyCategory by remember { mutableStateOf<String?>(null) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
@@ -106,9 +107,13 @@ fun MainAppScreen(
     }
 
     LaunchedEffect(activeSession?.id) {
-        val currentSessionId = activeSession?.id
+        val s = activeSession
+        val currentSessionId = s?.id
         if (currentSessionId != null && currentSessionId != handledSessionId) {
             handledSessionId = currentSessionId
+            if (!s.commonCategory.isNullOrBlank()) {
+                selectedLobbyCategory = s.commonCategory
+            }
             activeTab = "oyun"
         } else if (currentSessionId == null) {
             handledSessionId = null
@@ -144,8 +149,6 @@ fun MainAppScreen(
             }
         }
     }
-
-    var selectedLobbyCategory by remember { mutableStateOf<String?>(null) }
 
     if (currentUser == null) {
         Box(
