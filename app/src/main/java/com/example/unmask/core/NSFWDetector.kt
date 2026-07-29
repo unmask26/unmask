@@ -23,8 +23,8 @@ object NSFWDetector {
     suspend fun analyzeVideo(
         context: Context,
         videoUri: Uri,
-        frameCount: Int = 4,
-        threshold: Float = 0.85f
+        frameCount: Int = 6,
+        threshold: Float = 0.65f
     ): NSFWResult = withContext(Dispatchers.IO) {
         val retriever = MediaMetadataRetriever()
         try {
@@ -38,7 +38,9 @@ object NSFWDetector {
             val stepMs = durationMs / (frameCount + 1)
             for (i in 1..frameCount) {
                 val timeUs = (i * stepMs) * 1000L
-                val frameBitmap = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+                val frameBitmap = retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST) 
+                    ?: retriever.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+
                 if (frameBitmap != null) {
                     val frameScore = evaluateFrameNsfwScore(frameBitmap)
                     if (frameScore > maxNsfwScore) {
@@ -51,7 +53,7 @@ object NSFWDetector {
 
             val isNSFW = maxNsfwScore >= threshold
             val reason = if (isNSFW) {
-                "Yüksek ten rengi / açık içerik oranı saptandı (Kare #$flaggedFrameIndex, Skor: ${(maxNsfwScore * 100).toInt()}%)"
+                "Müstehcenlik / açık içerik saptandı (Kare #$flaggedFrameIndex, Skor: ${(maxNsfwScore * 100).toInt()}%)"
             } else ""
 
             NSFWResult(
@@ -71,10 +73,9 @@ object NSFWDetector {
     }
 
     /**
-     * Bitmap karesindeki ten rengi (skin tone) piksel oranını ve müstehcenlik heuristiğini analiz eder.
+     * YCbCr ve RGB hibrit ten rengi piksel oranını ve müstehcenlik skorunu analiz eder.
      */
     private fun evaluateFrameNsfwScore(bitmap: Bitmap): Float {
-        // Analiz performansını artırmak için 120x120 çözünürlüğe ölçeklendir
         val scaled = Bitmap.createScaledBitmap(bitmap, 120, 120, false)
         val width = scaled.width
         val height = scaled.height
@@ -102,21 +103,23 @@ object NSFWDetector {
         val skinRatio = skinPixelCount.toFloat() / totalPixels.toFloat()
 
         return when {
-            skinRatio >= 0.65f -> 0.95f
-            skinRatio >= 0.55f -> 0.88f
-            skinRatio >= 0.45f -> 0.65f
-            skinRatio >= 0.35f -> 0.35f
-            skinRatio >= 0.25f -> 0.15f
+            skinRatio >= 0.50f -> 0.95f
+            skinRatio >= 0.40f -> 0.85f
+            skinRatio >= 0.32f -> 0.70f
+            skinRatio >= 0.25f -> 0.45f
+            skinRatio >= 0.15f -> 0.20f
             else -> 0.05f
         }
     }
 
     private fun isSkinPixel(r: Int, g: Int, b: Int): Boolean {
-        val cond1 = r > 95 && g > 40 && b > 20
-        val cond2 = (maxOf(r, maxOf(g, b)) - minOf(r, minOf(g, b))) > 15
-        val cond3 = Math.abs(r - g) > 15 && r > g && r > b
-        val isNormalizedSkin = r > 180 && g > 140 && b > 100 && r > b
+        // YCbCr Renk Uzayı Dönüşümü
+        val cb = 128 - 0.168736f * r - 0.331264f * g + 0.5f * b
+        val cr = 128 + 0.5f * r - 0.418688f * g - 0.081312f * b
 
-        return (cond1 && cond2 && cond3) || isNormalizedSkin
+        val isYCbCrSkin = cb in 77.0f..127.0f && cr in 133.0f..173.0f
+        val isRgbSkin = r > 95 && g > 40 && b > 20 && (maxOf(r, maxOf(g, b)) - minOf(r, minOf(g, b))) > 15 && Math.abs(r - g) > 15 && r > g && r > b
+
+        return isYCbCrSkin && isRgbSkin
     }
 }

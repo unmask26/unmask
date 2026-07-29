@@ -1782,7 +1782,7 @@ fun OnlineGameplayView(
                                                         // 🛡️ Cihaz içi NSFW (Müstehcen İçerik) Taraması (Adult lobisinde pasif)
                                                         val isAdultCategory = session.commonCategory.lowercase() == "adult"
                                                         if (!isAdultCategory) {
-                                                            val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, uriSnapshot, threshold = 0.85f)
+                                                            val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, uriSnapshot, threshold = 0.65f)
                                                             if (nsfwResult.isNSFW) {
                                                                 withContext(Dispatchers.Main) {
                                                                     Toast.makeText(
