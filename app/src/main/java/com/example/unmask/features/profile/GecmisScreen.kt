@@ -1,6 +1,7 @@
 package com.example.unmask.features.profile
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -179,66 +180,73 @@ fun GecmisScreen(
                                         "@$senderName size oyun daveti gönderdi 🎮"
                                     }
 
-                                    Row(
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(14.dp))
+                                            .clip(RoundedCornerShape(16.dp))
                                             .background(Color(0xFFF3E8FF))
-                                            .border(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.3f), RoundedCornerShape(14.dp))
-                                            .padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .border(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.3f), RoundedCornerShape(16.dp))
+                                            .padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(10.dp)
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = cardMessageText,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp,
-                                                color = Color.Black
-                                            )
-                                        }
+                                        Text(
+                                            text = cardMessageText,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Color.Black,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
 
-                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Button(
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            OutlinedButton(
                                                 onClick = {
                                                     coroutineScope.launch {
                                                         repository.banUser(senderName, req.id)
                                                         Toast.makeText(context, "@$senderName engellendi ve Banlananlar kutusuna eklendi!", Toast.LENGTH_SHORT).show()
                                                     }
                                                 },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                                                border = BorderStroke(1.dp, Color.Red),
                                                 shape = RoundedCornerShape(10.dp),
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(34.dp)
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                modifier = Modifier.height(36.dp)
                                             ) {
-                                                Text("BANLA 🚫", fontSize = 10.sp, fontWeight = FontWeight.Black, color = Color.White)
+                                                Text("BANLA 🚫", fontSize = 11.sp, fontWeight = FontWeight.Black)
                                             }
 
-                                            IconButton(
+                                            OutlinedButton(
                                                 onClick = {
                                                     coroutineScope.launch {
                                                         repository.rejectDirectGameRequest(req.id)
                                                     }
                                                 },
-                                                modifier = Modifier.size(32.dp)
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray),
+                                                border = BorderStroke(1.dp, Color.Gray.copy(alpha = 0.4f)),
+                                                shape = RoundedCornerShape(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                                modifier = Modifier.height(36.dp)
                                             ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "Reddet",
-                                                    tint = Color.Red.copy(alpha = 0.7f)
-                                                )
+                                                Text("REDDET ✕", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                             }
 
                                             Button(
                                                 onClick = { selectedRequestForLobby = req },
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                                shape = RoundedCornerShape(10.dp),
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                                modifier = Modifier
+                                                    .weight(1f)
+                                                    .height(36.dp)
                                             ) {
                                                 Text(
-                                                    text = if (isLobbyChosenByMe) "LOBİ DEĞİŞTİR" else "LOBİ SEÇ & KABUL ET 🚀",
+                                                    text = if (isLobbyChosenByMe) "LOBİ DEĞİŞTİR" else "KABUL ET & OYNA 🚀",
                                                     fontWeight = FontWeight.Black,
-                                                    fontSize = 11.sp
+                                                    fontSize = 11.sp,
+                                                    color = Color.White
                                                 )
                                             }
                                         }
