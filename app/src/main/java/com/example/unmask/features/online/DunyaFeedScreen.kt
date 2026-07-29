@@ -344,10 +344,9 @@ fun ReelsPageItem(
                     fontSize = 16.sp
                 )
 
-                val myNickname = currentUser?.nickname?.takeIf { it.isNotBlank() } ?: currentUser?.displayName ?: ""
+                val myNickname = currentUser?.nickname?.takeIf { it.isNotBlank() } ?: "Oyuncu"
                 val isMyOwnVideo = video.userId == currentUserId || 
-                                   video.userName.equals(myNickname, ignoreCase = true) || 
-                                   video.userName.equals(currentUser?.displayName, ignoreCase = true)
+                                   (myNickname.isNotEmpty() && video.userName.equals(myNickname, ignoreCase = true))
 
                 if (!isMyOwnVideo) {
                     val isFollowing = currentUser?.following?.contains(video.userName) == true

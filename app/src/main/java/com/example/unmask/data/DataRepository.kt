@@ -1189,7 +1189,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         val publicVideo = PublicVideo(
             id = docId,
             userId = user.uid,
-            userName = user.nickname?.takeIf { it.isNotBlank() } ?: user.displayName,
+            userName = user.nickname?.takeIf { it.isNotBlank() } ?: "Oyuncu",
             videoUrl = videoUrl,
             gameName = gameName,
             taskText = taskText,
