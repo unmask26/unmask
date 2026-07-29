@@ -276,8 +276,14 @@ fun GecmisScreen(
                                 )
                             } else {
                                 sentRequests.forEach { req ->
-                                    val isLobbySelected = req.status == "lobby_selected"
-                                    val catName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.uppercase()
+                                    val isLobbySelected = req.status == "lobby_selected" || req.status == "playing"
+                                    val catName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.takeIf { it.isNotBlank() }?.uppercase()
+
+                                    val subtitleText = when {
+                                        isLobbySelected && !catName.isNullOrBlank() -> "🎯 Rakibin Seçtiği Lobi: $catName (Oyun Başlıyor...)"
+                                        !catName.isNullOrBlank() -> "Önerilen Lobi: $catName 🎯 (Yanıt bekleniyor...)"
+                                        else -> "Davet Gönderildi (Yanıt bekleniyor...)"
+                                    }
 
                                     Column(
                                         modifier = Modifier
@@ -301,7 +307,7 @@ fun GecmisScreen(
                                                     color = Color.Black
                                                 )
                                                 Text(
-                                                    text = if (isLobbySelected) "$catName LOBİSİNİ SEÇTİ! 🎯" else "Davet Gönderildi (Yanıt bekleniyor...)",
+                                                    text = subtitleText,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Bold,
                                                     color = if (isLobbySelected) Color(0xFF047857) else Color.Black.copy(alpha = 0.5f)
