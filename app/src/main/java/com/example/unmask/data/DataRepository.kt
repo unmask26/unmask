@@ -1293,7 +1293,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             val newComment = Comment(
                 id = UUID.randomUUID().toString(),
                 userId = user.uid,
-                userName = user.nickname?.takeIf { it.isNotBlank() } ?: user.displayName,
+                userName = user.nickname?.takeIf { it.isNotBlank() } ?: "Oyuncu",
                 text = commentText,
                 createdAt = System.currentTimeMillis()
             )
