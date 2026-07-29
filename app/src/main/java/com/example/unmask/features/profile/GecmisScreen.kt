@@ -107,7 +107,7 @@ fun GecmisScreen(
             ) {
                 Column {
                     Text(
-                        text = "ONLINE GEÇMİŞ",
+                        text = "ARKADAŞLAR",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black,
                         color = Color.Black

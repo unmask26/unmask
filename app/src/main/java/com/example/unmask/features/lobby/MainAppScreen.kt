@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Gamepad
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -387,7 +388,7 @@ fun BottomNav(
             ) {
                 val tabs = listOf(
                     BottomTabItem("oyun", Icons.Default.Gamepad, "OYUN"),
-                    BottomTabItem("gecmis", Icons.Default.History, "GEÇMİŞ"),
+                    BottomTabItem("gecmis", Icons.Default.Person, "ARKADAŞLAR"),
                     BottomTabItem("qr", Icons.Default.QrCodeScanner, "QR"),
                     BottomTabItem("ani", Icons.Default.Book, "ANI"),
                     BottomTabItem("dunya", Icons.Default.Public, "DÜNYA")
