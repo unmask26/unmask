@@ -24,10 +24,16 @@ class NotificationWorker(
                 .get()
                 .await()
 
+            val cleanUid = savedUid.trim()
+            val cleanNick = savedNickname.removePrefix("@").trim()
+
             val requests = docs.documents.mapNotNull { it.toObject(DirectGameRequest::class.java) }
                 .filter { req ->
-                    val isForMe = req.receiverId == savedUid ||
-                            (savedNickname.isNotEmpty() && (req.receiverId.equals(savedNickname, ignoreCase = true) || req.receiverNickname.equals(savedNickname, ignoreCase = true)))
+                    val reqRecId = req.receiverId.removePrefix("@").trim()
+                    val reqRecNick = req.receiverNickname.removePrefix("@").trim()
+
+                    val isForMe = (cleanUid.isNotEmpty() && reqRecId.equals(cleanUid, ignoreCase = true)) ||
+                            (cleanNick.isNotEmpty() && (reqRecId.equals(cleanNick, ignoreCase = true) || reqRecNick.equals(cleanNick, ignoreCase = true)))
                     isForMe
                 }
 

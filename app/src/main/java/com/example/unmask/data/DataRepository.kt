@@ -1473,20 +1473,44 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         receiverGender: String,
         selectedCategory: String
     ): String {
-        // 🎯 Eğer receiverId bir nickname ise (UUID değilse), Firestore'dan gerçek UID'yi bulalım
-        var targetUid = receiverId
+        val cleanReceiverId = receiverId.removePrefix("@").trim()
+        val cleanReceiverNickname = receiverNickname.removePrefix("@").trim()
+        var targetUid = cleanReceiverId
+        var resolvedNickname = if (cleanReceiverNickname.isNotEmpty()) cleanReceiverNickname else cleanReceiverId
+
+        // 🎯 Firestore'dan harf büyüklüğü (case-insensitive) bakmaksızın hedef kullanıcının gerçek UID'sini saptayalım
         try {
-            if (targetUid.length < 20 || targetUid == receiverNickname) {
-                val docs = firestore.collection("users")
-                    .whereEqualTo("nickname", receiverNickname)
-                    .get()
-                    .await()
-                val match = docs.documents.firstOrNull()
-                if (match != null) {
-                    targetUid = match.id
+            val allUsersSnapshot = firestore.collection("users").get().await()
+            val matchUser = allUsersSnapshot.documents.find { doc ->
+                val docUid = doc.id
+                val nick = doc.getString("nickname") ?: ""
+                val disp = doc.getString("displayName") ?: ""
+                docUid.equals(cleanReceiverId, ignoreCase = true) ||
+                (cleanReceiverNickname.isNotEmpty() && (nick.equals(cleanReceiverNickname, ignoreCase = true) || disp.equals(cleanReceiverNickname, ignoreCase = true))) ||
+                (cleanReceiverId.isNotEmpty() && (nick.equals(cleanReceiverId, ignoreCase = true) || disp.equals(cleanReceiverId, ignoreCase = true)))
+            }
+            if (matchUser != null) {
+                targetUid = matchUser.id
+                resolvedNickname = matchUser.getString("nickname")?.takeIf { it.isNotBlank() }
+                    ?: matchUser.getString("displayName")
+                    ?: resolvedNickname
+            } else {
+                val onlineSnap = firestore.collection("online_users").get().await()
+                val matchOnline = onlineSnap.documents.find { doc ->
+                    val uId = doc.getString("userId") ?: doc.id
+                    val uName = doc.getString("userName") ?: ""
+                    uId.equals(cleanReceiverId, ignoreCase = true) ||
+                    uName.equals(cleanReceiverNickname, ignoreCase = true) ||
+                    uName.equals(cleanReceiverId, ignoreCase = true)
+                }
+                if (matchOnline != null) {
+                    targetUid = matchOnline.getString("userId") ?: matchOnline.id
+                    resolvedNickname = matchOnline.getString("userName") ?: resolvedNickname
                 }
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         val requestId = "req-" + UUID.randomUUID().toString()
         val request = DirectGameRequest(
@@ -1495,7 +1519,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             senderNickname = senderNickname,
             senderGender = senderGender,
             receiverId = targetUid,
-            receiverNickname = receiverNickname,
+            receiverNickname = resolvedNickname,
             receiverGender = receiverGender,
             selectedCategory = selectedCategory,
             status = "pending",
@@ -1582,18 +1606,24 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     return@addSnapshotListener
                 }
                 val current = _currentUser.value
-                val myNickname = current?.nickname ?: ""
-                val myDisplayName = current?.displayName ?: ""
+                val myUid = userId.trim()
+                val myNickname = current?.nickname?.removePrefix("@")?.trim() ?: ""
+                val myDisplayName = current?.displayName?.trim() ?: ""
                 val myBannedUsers = current?.bannedUsers ?: emptyList()
 
                 val requests = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(DirectGameRequest::class.java)
                 }.filter { req ->
-                    val isBanned = myBannedUsers.contains(req.senderNickname) || myBannedUsers.contains(req.senderId)
-                    val isForMe = (userId.isNotEmpty() && req.receiverId.equals(userId, ignoreCase = true)) ||
-                                  (myNickname.isNotEmpty() && req.receiverId.equals(myNickname, ignoreCase = true)) ||
-                                  (myNickname.isNotEmpty() && req.receiverNickname.equals(myNickname, ignoreCase = true)) ||
-                                  (myDisplayName.isNotEmpty() && req.receiverNickname.equals(myDisplayName, ignoreCase = true))
+                    val reqRecId = req.receiverId.removePrefix("@").trim()
+                    val reqRecNick = req.receiverNickname.removePrefix("@").trim()
+
+                    val isBanned = myBannedUsers.any { b ->
+                        b.equals(req.senderNickname, ignoreCase = true) || b.equals(req.senderId, ignoreCase = true)
+                    }
+
+                    val isForMe = (myUid.isNotEmpty() && reqRecId.equals(myUid, ignoreCase = true)) ||
+                                  (myNickname.isNotEmpty() && (reqRecId.equals(myNickname, ignoreCase = true) || reqRecNick.equals(myNickname, ignoreCase = true))) ||
+                                  (myDisplayName.isNotEmpty() && (reqRecId.equals(myDisplayName, ignoreCase = true) || reqRecNick.equals(myDisplayName, ignoreCase = true)))
 
                     !isBanned && isForMe && (req.status == "pending" || req.status == "lobby_selected")
                 }.sortedByDescending { it.createdAt }
