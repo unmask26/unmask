@@ -776,9 +776,24 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         trySend(null)
                         return@addSnapshotListener
                     }
+                    val myNickname = _currentUser.value?.nickname ?: ""
+                    val myDisplayName = _currentUser.value?.displayName ?: ""
+
                     val session = snapshot?.documents?.mapNotNull { doc ->
                         doc.toObject(OnlineSession::class.java)
-                    }?.find { (it.user1Id == userId || it.user2Id == userId) && it.status != "finished" }
+                    }?.find { s ->
+                        val isUser1Me = s.user1Id == userId ||
+                                       (myNickname.isNotEmpty() && s.user1Id.equals(myNickname, ignoreCase = true)) ||
+                                       (myNickname.isNotEmpty() && s.user1Name.equals(myNickname, ignoreCase = true)) ||
+                                       (myDisplayName.isNotEmpty() && s.user1Name.equals(myDisplayName, ignoreCase = true))
+
+                        val isUser2Me = s.user2Id == userId ||
+                                       (myNickname.isNotEmpty() && s.user2Id.equals(myNickname, ignoreCase = true)) ||
+                                       (myNickname.isNotEmpty() && s.user2Name.equals(myNickname, ignoreCase = true)) ||
+                                       (myDisplayName.isNotEmpty() && s.user2Name.equals(myDisplayName, ignoreCase = true))
+
+                        (isUser1Me || isUser2Me) && s.status != "finished"
+                    }
                     trySend(session)
                 }
             awaitClose { listener.remove() }
@@ -1484,11 +1499,31 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     }
 
     override suspend fun launchSessionFromDirectRequest(request: DirectGameRequest): String {
+        var realSenderId = request.senderId
+        var realReceiverId = request.receiverId
+
+        try {
+            val docs = firestore.collection("online_users").get().await()
+            val presences = docs.documents.mapNotNull { it.toObject(OnlineUserPresence::class.java) }
+
+            val senderPresence = presences.find { it.userId == request.senderId || it.userName.equals(request.senderNickname, ignoreCase = true) }
+            val receiverPresence = presences.find { it.userId == request.receiverId || it.userName.equals(request.receiverNickname, ignoreCase = true) }
+
+            if (senderPresence != null && senderPresence.userId.isNotBlank()) {
+                realSenderId = senderPresence.userId
+            }
+            if (receiverPresence != null && receiverPresence.userId.isNotBlank()) {
+                realReceiverId = receiverPresence.userId
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         val sessionId = createSession(
-            user1Id = request.senderId,
+            user1Id = realSenderId,
             user1Name = request.senderNickname,
             user1Gender = request.senderGender,
-            user2Id = request.receiverId,
+            user2Id = realReceiverId,
             user2Name = request.receiverNickname,
             user2Gender = request.receiverGender,
             category = request.selectedCategory
