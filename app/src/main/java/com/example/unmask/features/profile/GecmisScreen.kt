@@ -129,7 +129,112 @@ fun GecmisScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
 
-                // ─── 📦 1. BOX: İSTEK GÖNDERİLEN OYUNCULAR & GELEN İSTEKLER ───────────────
+                // ─── 📦 1. BOX (EN ÜST): SİZE DAVET GÖNDEREN KULLANICILAR (GELEN İSTEKLER) ──────────
+                item {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(2.dp, Color(0xFF8B5CF6), RoundedCornerShape(24.dp))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(Color(0xFF8B5CF6), CircleShape)
+                                )
+                                Text(
+                                    text = "1. SİZE DAVET GÖNDEREN OYUNCULAR (${incomingRequests.size})",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 14.sp,
+                                    color = Color.Black
+                                )
+                            }
+
+                            if (incomingRequests.isEmpty()) {
+                                Text(
+                                    text = "Henüz tarafınıza gönderilmiş gelen bir oyun daveti yok.",
+                                    fontSize = 12.sp,
+                                    color = Color.Black.copy(alpha = 0.4f),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                )
+                            } else {
+                                incomingRequests.forEach { req ->
+                                    val isLobbyChosenByMe = req.status == "lobby_selected"
+                                    val chosenCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.uppercase()
+
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(Color(0xFFF3E8FF))
+                                            .border(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "@${req.senderNickname.ifEmpty { "Oyuncu" }}",
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 15.sp,
+                                                color = Color.Black
+                                            )
+                                            Text(
+                                                text = if (isLobbyChosenByMe) "$chosenCatName lobisi seçildi 🎮" else "Size oyun daveti gönderdi!",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF7C3AED)
+                                            )
+                                        }
+
+                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            IconButton(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        repository.rejectDirectGameRequest(req.id)
+                                                    }
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Reddet",
+                                                    tint = Color.Red
+                                                )
+                                            }
+
+                                            Button(
+                                                onClick = { selectedRequestForLobby = req },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                                shape = RoundedCornerShape(12.dp),
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (isLobbyChosenByMe) "LOBİ DEĞİŞTİR" else "LOBİ SEÇ & KABUL ET 🚀",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ─── 📦 2. BOX: GÖNDERDİĞİNİZ OYUN İSTEKLERİ ───────────────────────────
                 item {
                     Card(
                         shape = RoundedCornerShape(24.dp),
@@ -153,23 +258,22 @@ fun GecmisScreen(
                                         .background(Color(0xFF10B981), CircleShape)
                                 )
                                 Text(
-                                    text = "1. İSTEK GÖNDERİLEN OYUNCULAR (${sentRequests.size + incomingRequests.size})",
+                                    text = "2. GÖNDERDİĞİNİZ OYUN İSTEKLERİ (${sentRequests.size})",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 14.sp,
                                     color = Color.Black
                                 )
                             }
 
-                            if (sentRequests.isEmpty() && incomingRequests.isEmpty()) {
+                            if (sentRequests.isEmpty()) {
                                 Text(
-                                    text = "Henüz aktif oyun daveti veya gönderilmiş istek bulunmuyor.",
+                                    text = "Henüz bir oyuncuya gönderdiğiniz aktif davet bulunmuyor.",
                                     fontSize = 12.sp,
                                     color = Color.Black.copy(alpha = 0.4f),
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             } else {
-                                // Sent requests
                                 sentRequests.forEach { req ->
                                     val isLobbySelected = req.status == "lobby_selected"
                                     val catName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.uppercase()
@@ -190,7 +294,7 @@ fun GecmisScreen(
                                         ) {
                                             Column {
                                                 Text(
-                                                    text = req.receiverNickname.ifEmpty { "Oyuncu" },
+                                                    text = "@${req.receiverNickname.ifEmpty { "Oyuncu" }}",
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 15.sp,
                                                     color = Color.Black
@@ -256,72 +360,12 @@ fun GecmisScreen(
                                         }
                                     }
                                 }
-
-                                // Incoming requests
-                                incomingRequests.forEach { req ->
-                                    val isLobbyChosenByMe = req.status == "lobby_selected"
-                                    val chosenCatName = categories.find { it.key == req.selectedCategory }?.name ?: req.selectedCategory.uppercase()
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(Color(0xFFF3E8FF))
-                                            .padding(12.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(
-                                                text = req.senderNickname.ifEmpty { "Oyuncu" },
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 15.sp,
-                                                color = Color.Black
-                                            )
-                                            Text(
-                                                text = if (isLobbyChosenByMe) "$chosenCatName lobisi seçildi (Başlatılması bekleniyor...)" else "Size oyun isteği gönderdi",
-                                                fontSize = 11.sp,
-                                                color = Color.Black.copy(alpha = 0.6f)
-                                            )
-                                        }
-
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                            IconButton(
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        repository.rejectDirectGameRequest(req.id)
-                                                    }
-                                                },
-                                                modifier = Modifier.size(36.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Close,
-                                                    contentDescription = "Reddet",
-                                                    tint = Color.Red
-                                                )
-                                            }
-
-                                            Button(
-                                                onClick = { selectedRequestForLobby = req },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                            ) {
-                                                Text(
-                                                    text = if (isLobbyChosenByMe) "LOBİ DEĞİŞTİR" else "LOBİ SEÇ",
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
                             }
                         }
                     }
                 }
 
-                // ─── 📦 2. BOX: DAHA ÖNCE OYNADIĞIN OYUNCULAR ────────────────────────────
+                // ─── 📦 3. BOX: DAHA ÖNCE OYNADIĞIN OYUNCULAR ────────────────────────────
                 item {
                     Card(
                         shape = RoundedCornerShape(24.dp),
@@ -345,7 +389,7 @@ fun GecmisScreen(
                                         .background(Color(0xFF3B82F6), CircleShape)
                                 )
                                 Text(
-                                    text = "2. DAHA ÖNCE OYNADIĞIN OYUNCULAR (${onlineOpponents.size})",
+                                    text = "3. DAHA ÖNCE OYNADIĞIN OYUNCULAR (${onlineOpponents.size})",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 14.sp,
                                     color = Color.Black
@@ -456,7 +500,7 @@ fun GecmisScreen(
                     }
                 }
 
-                // ─── 📦 3. BOX: TAKİP ETTİĞİN KİŞİLER (DÜNYA) ─────────────────────────
+                // ─── 📦 4. BOX: TAKİP ETTİĞİN KİŞİLER (DÜNYA) ─────────────────────────
                 item {
                     Card(
                         shape = RoundedCornerShape(24.dp),
@@ -480,7 +524,7 @@ fun GecmisScreen(
                                         .background(Color(0xFF8B5CF6), CircleShape)
                                 )
                                 Text(
-                                    text = "3. TAKİP ETTİĞİN KİŞİLER (DÜNYA) (${followedUsers.size})",
+                                    text = "4. TAKİP ETTİĞİN KİŞİLER (DÜNYA) (${followedUsers.size})",
                                     fontWeight = FontWeight.Black,
                                     fontSize = 14.sp,
                                     color = Color.Black
