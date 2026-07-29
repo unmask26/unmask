@@ -777,7 +777,8 @@ fun GecmisScreen(
                                             coroutineScope.launch {
                                                 try {
                                                     repository.acceptDirectGameRequest(req, cat.key)
-                                                    Toast.makeText(context, "${cat.name} lobisi seçildi! Karşı tarafın onaylaması bekleniyor.", Toast.LENGTH_SHORT).show()
+                                                    onNavigateToLobby(cat.key)
+                                                    Toast.makeText(context, "${cat.name} lobisinde oyun başlatılıyor! 🚀", Toast.LENGTH_SHORT).show()
                                                 } catch (e: Exception) {
                                                     Toast.makeText(context, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
                                                 } finally {

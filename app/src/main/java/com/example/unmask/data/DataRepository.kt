@@ -1442,10 +1442,13 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
 
     override suspend fun acceptDirectGameRequest(request: DirectGameRequest, selectedCategory: String) {
         try {
+            val reqWithCategory = request.copy(selectedCategory = selectedCategory, status = "lobby_selected")
+            val sessionId = launchSessionFromDirectRequest(reqWithCategory)
             firestore.collection("direct_game_requests").document(request.id).update(
                 mapOf(
-                    "status" to "lobby_selected",
-                    "selectedCategory" to selectedCategory
+                    "status" to "playing",
+                    "selectedCategory" to selectedCategory,
+                    "sessionId" to sessionId
                 )
             ).await()
         } catch (e: Exception) {
