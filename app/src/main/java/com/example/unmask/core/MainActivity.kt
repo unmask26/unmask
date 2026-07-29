@@ -8,6 +8,7 @@ import com.example.unmask.features.online.*
 import com.example.unmask.features.profile.*
 
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -25,6 +26,17 @@ class MainActivity : ComponentActivity() {
     GameNotificationManager.createNotificationChannel(this)
     FCMTokenManager.initAndSyncFCMToken(this)
     NotificationWorker.scheduleBackgroundWorker(this)
+
+    try {
+        val serviceIntent = Intent(this, GameNotificationService::class.java)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent)
+        } else {
+            startService(serviceIntent)
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
 
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
         if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
