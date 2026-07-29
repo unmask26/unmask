@@ -41,21 +41,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // 🔋 LG ve Özel Üretici Pil Tasarrufu Muafiyet Kontrolü
-    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-        val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-        if (pm != null && !pm.isIgnoringBatteryOptimizations(packageName)) {
-            try {
-                val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = android.net.Uri.parse("package:$packageName")
-                }
-                startActivity(intent)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
     enableEdgeToEdge()
     setContent {
       UNMASKTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
