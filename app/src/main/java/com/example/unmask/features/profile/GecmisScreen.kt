@@ -108,41 +108,19 @@ fun GecmisScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column {
                     Text(
                         text = "ARKADAŞLAR",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black,
                         color = Color.Black
                     )
-
-                    val myNickname = currentUserProfile?.nickname?.takeIf { it.isNotBlank() } ?: "Oyuncu"
-
-                    // 🟢 UYGULAMAYA GİRER GİRMEZ ÇEVRİMİÇİ OLDUĞUNU BELLİ EDEN YEŞİL ZEMİNLİ NİCKNAME ETİKETİ
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF10B981).copy(alpha = 0.15f))
-                            .border(1.dp, Color(0xFF10B981), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(0xFF10B981), CircleShape)
-                            )
-                            Text(
-                                text = "@$myNickname • ÇEVRİMİÇİ 🟢",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF047857)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "İstekler, oyun geçmişiniz ve takip ettiğiniz kişiler",
+                        fontSize = 12.sp,
+                        color = Color.Black.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
 
@@ -408,7 +386,7 @@ fun GecmisScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(14.dp))
-                                            .background(Color(0xFFEFF6FF))
+                                            .background(if (isOnline) Color(0xFFD1FAE5) else Color(0xFFEFF6FF))
                                             .clickable { selectedOpponentForRequest = opp }
                                             .padding(14.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -427,17 +405,31 @@ fun GecmisScreen(
                                                     )
                                             )
                                             Column {
-                                                Text(
-                                                    text = opp.opponentName,
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 15.sp,
-                                                    color = Color.Black
-                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = opp.opponentName,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 15.sp,
+                                                        color = Color.Black
+                                                    )
+                                                    if (isOnline) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .background(Color(0xFF10B981).copy(alpha = 0.2f), RoundedCornerShape(6.dp))
+                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text("ÇEVRİMİÇİ 🟢", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF047857))
+                                                        }
+                                                    }
+                                                }
                                                 Text(
                                                     text = statusText,
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (isOnline) Color(0xFF10B981) else Color.Black.copy(alpha = 0.4f)
+                                                    color = if (isOnline) Color(0xFF047857) else Color.Black.copy(alpha = 0.4f)
                                                 )
                                             }
                                         }
@@ -505,11 +497,14 @@ fun GecmisScreen(
                                 )
                             } else {
                                 followedUsers.forEach { userName ->
+                                    val presence = allPresences.find { it.userName.equals(userName, ignoreCase = true) }
+                                    val isFollowedOnline = presence != null && (System.currentTimeMillis() - presence.lastActive < 30_000)
+
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(14.dp))
-                                            .background(Color(0xFFF3E8FF))
+                                            .background(if (isFollowedOnline) Color(0xFFD1FAE5) else Color(0xFFF3E8FF))
                                             .padding(14.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
@@ -521,22 +516,36 @@ fun GecmisScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .size(34.dp)
-                                                    .background(Color(0xFF8B5CF6).copy(alpha = 0.2f), CircleShape),
+                                                    .background(if (isFollowedOnline) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFF8B5CF6).copy(alpha = 0.2f), CircleShape),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
                                                     text = userName.take(1).uppercase(),
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 15.sp,
-                                                    color = Color(0xFF8B5CF6)
+                                                    color = if (isFollowedOnline) Color(0xFF047857) else Color(0xFF8B5CF6)
                                                 )
                                             }
-                                            Text(
-                                                text = "@$userName",
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 15.sp,
-                                                color = Color.Black
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                            ) {
+                                                Text(
+                                                    text = "@$userName",
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 15.sp,
+                                                    color = Color.Black
+                                                )
+                                                if (isFollowedOnline) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(Color(0xFF10B981).copy(alpha = 0.25f), RoundedCornerShape(6.dp))
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text("ÇEVRİMİÇİ 🟢", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF047857))
+                                                    }
+                                                }
+                                            }
                                         }
 
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
