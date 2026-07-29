@@ -120,21 +120,24 @@ fun MainAppScreen(
         }
     }
 
-    // 🟢 GLOBAL APP-WIDE ONLINE PRESENCE (Uygulama açık olduğu sürece online kalır)
+    // 🟢 GLOBAL APP-WIDE ONLINE PRESENCE (Dünya/Oyun harici sekmelerde idle varlığı korur)
     val userProfile = currentUser
-    LaunchedEffect(userProfile?.uid) {
+    LaunchedEffect(userProfile?.uid, activeTab) {
         val uid = userProfile?.uid ?: return@LaunchedEffect
         val name = userProfile.nickname?.takeIf { it.isNotBlank() } ?: userProfile.displayName
         val gender = userProfile.gender
-        while (true) {
-            val banUntil = userProfile.banUntil ?: 0L
-            val now = System.currentTimeMillis()
-            if (banUntil <= now) {
-                repository.updatePresence(uid, name, status = "idle", gender = gender)
-            } else {
-                repository.updatePresence(uid, name, status = "offline", banUntil = banUntil, gender = gender)
+        // Dünya ve Oyun sekmeleri kendi lobi/oyun varlığını yönettikleri için çakışmayı önlüyoruz
+        if (activeTab != "dunya" && activeTab != "oyun") {
+            while (true) {
+                val banUntil = userProfile.banUntil ?: 0L
+                val now = System.currentTimeMillis()
+                if (banUntil <= now) {
+                    repository.updatePresence(uid, name, status = "idle", gender = gender)
+                } else {
+                    repository.updatePresence(uid, name, status = "offline", banUntil = banUntil, gender = gender)
+                }
+                kotlinx.coroutines.delay(5000L) // 5 saniyede bir heartbeat
             }
-            kotlinx.coroutines.delay(5000L) // 5 saniyede bir heartbeat
         }
     }
 

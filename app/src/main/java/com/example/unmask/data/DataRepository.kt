@@ -725,8 +725,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                         doc.toObject(OnlineUserPresence::class.java)
                     }?.filter { 
                         it.userId != currentUserId && 
+                        it.status != "offline" &&
                         (it.status == "idle" || it.status == "app_open" || it.status.startsWith("searching:")) && 
-                        Math.abs(System.currentTimeMillis() - it.lastActive) < 30_000 
+                        (System.currentTimeMillis() - it.lastActive) < 60_000 
                     } ?: emptyList()
                     trySend(users)
                 }
