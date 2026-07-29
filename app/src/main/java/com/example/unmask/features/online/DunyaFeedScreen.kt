@@ -344,30 +344,37 @@ fun ReelsPageItem(
                     fontSize = 16.sp
                 )
 
-                val isFollowing = currentUser?.following?.contains(video.userName) == true
+                val myNickname = currentUser?.nickname?.takeIf { it.isNotBlank() } ?: currentUser?.displayName ?: ""
+                val isMyOwnVideo = video.userId == currentUserId || 
+                                   video.userName.equals(myNickname, ignoreCase = true) || 
+                                   video.userName.equals(currentUser?.displayName, ignoreCase = true)
 
-                // TAKİP ET / TAKİPTESİN Butonu
-                Button(
-                    onClick = {
-                        coroutineScope.launch {
-                            repository.toggleFollowUser(video.userName)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isFollowing) Color(0xFF10B981) else Color.White.copy(alpha = 0.2f),
-                        contentColor = Color.White
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isFollowing) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f)),
-                    shape = RoundedCornerShape(16.dp),
-                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                    modifier = Modifier.height(28.dp)
-                ) {
-                    Text(
-                        text = if (isFollowing) "TAKİPTESİN ✓" else "+ TAKİP ET",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                if (!isMyOwnVideo) {
+                    val isFollowing = currentUser?.following?.contains(video.userName) == true
+
+                    // TAKİP ET / TAKİPTESİN Butonu
+                    Button(
+                        onClick = {
+                            coroutineScope.launch {
+                                repository.toggleFollowUser(video.userName)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isFollowing) Color(0xFF10B981) else Color.White.copy(alpha = 0.2f),
+                            contentColor = Color.White
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, if (isFollowing) Color(0xFF10B981) else Color.White.copy(alpha = 0.6f)),
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Text(
+                            text = if (isFollowing) "TAKİPTESİN ✓" else "+ TAKİP ET",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
@@ -387,21 +394,6 @@ fun ReelsPageItem(
                     fontSize = 15.sp,
                     lineHeight = 20.sp
                 )
-            }
-
-            if (video.filterName.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "✨ ${video.filterName.uppercase()} FİLTRESİ",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 11.sp
-                    )
-                }
             }
         }
 
