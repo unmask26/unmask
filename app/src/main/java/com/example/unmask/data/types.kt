@@ -140,7 +140,9 @@ data class OnlineSession(
     val usedTaskTexts: List<String> = emptyList(), // Tracks matchmaking tasks used in this session
     val replayRequestStatus: String = "none",      // "none", "requested", "accepted", "rejected"
     val replayRequesterId: String = "",
-    val replayRequesterName: String = ""
+    val replayRequesterName: String = "",
+    val endedByUserId: String = "",
+    val endedByUserName: String = ""
 )
 
 @Serializable

@@ -635,7 +635,18 @@ fun DunyaScreen(
                                 }
                             },
                             onCloseSession = {
-                                coroutineScope.launch { repository.deleteSession(session.id) }
+                                coroutineScope.launch {
+                                    try {
+                                        val updated = session.copy(
+                                            status = "ended_by_user",
+                                            endedByUserId = user.uid,
+                                            endedByUserName = displayedName
+                                        )
+                                        repository.updateSession(updated)
+                                    } catch (e: Exception) {
+                                        repository.deleteSession(session.id)
+                                    }
+                                }
                             }
                         )
                     }
@@ -713,7 +724,18 @@ fun DunyaScreen(
                                 }
                             },
                             onCloseSession = {
-                                coroutineScope.launch { repository.deleteSession(session.id) }
+                                coroutineScope.launch {
+                                    try {
+                                        val updated = session.copy(
+                                            status = "ended_by_user",
+                                            endedByUserId = user.uid,
+                                            endedByUserName = displayedName
+                                        )
+                                        repository.updateSession(updated)
+                                    } catch (e: Exception) {
+                                        repository.deleteSession(session.id)
+                                    }
+                                }
                             }
                         )
                     }
@@ -725,7 +747,18 @@ fun DunyaScreen(
                             customTasks = customTasks,
                             repository = repository,
                             onCloseSession = {
-                                coroutineScope.launch { repository.deleteSession(session.id) }
+                                coroutineScope.launch {
+                                    try {
+                                        val updated = session.copy(
+                                            status = "ended_by_user",
+                                            endedByUserId = user.uid,
+                                            endedByUserName = displayedName
+                                        )
+                                        repository.updateSession(updated)
+                                    } catch (e: Exception) {
+                                        repository.deleteSession(session.id)
+                                    }
+                                }
                             }
                         )
                     }
@@ -736,9 +769,63 @@ fun DunyaScreen(
                             userNickname = displayedName,
                             repository = repository,
                             onCloseSession = {
-                                coroutineScope.launch { repository.deleteSession(session.id) }
+                                coroutineScope.launch {
+                                    try {
+                                        val updated = session.copy(
+                                            status = "ended_by_user",
+                                            endedByUserId = user.uid,
+                                            endedByUserName = displayedName
+                                        )
+                                        repository.updateSession(updated)
+                                    } catch (e: Exception) {
+                                        repository.deleteSession(session.id)
+                                    }
+                                }
                             }
                         )
+                    }
+                    "ended_by_user" -> {
+                        val isEndedByMe = session.endedByUserId == user.uid
+                        if (isEndedByMe) {
+                            LaunchedEffect(Unit) {
+                                repository.deleteSession(session.id)
+                            }
+                        } else {
+                            AlertDialog(
+                                onDismissRequest = {
+                                    coroutineScope.launch { repository.deleteSession(session.id) }
+                                },
+                                title = {
+                                    Text(
+                                        text = "🔴 RAKİP OYUNU BİTİRDİ",
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 20.sp,
+                                        color = Color(0xFFEF4444)
+                                    )
+                                },
+                                text = {
+                                    Text(
+                                        text = "Rakibiniz (${session.endedByUserName.ifEmpty { "Karşı oyuncu" }}) 'OYUNU BİTİR' butonuna basarak oyunu sonlandırdı.",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black.copy(alpha = 0.7f)
+                                    )
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            coroutineScope.launch { repository.deleteSession(session.id) }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("TAMAM", fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                },
+                                containerColor = Color.White,
+                                shape = RoundedCornerShape(24.dp)
+                            )
+                        }
                     }
                 }
             }
