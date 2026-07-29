@@ -31,6 +31,7 @@ data class Task(
     val hasVideo: Boolean = true
 )
 
+@com.google.firebase.firestore.IgnoreExtraProperties
 @Serializable
 data class UserProfile(
     val uid: String = "",
