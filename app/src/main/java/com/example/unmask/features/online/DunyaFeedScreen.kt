@@ -340,6 +340,28 @@ fun ReelsPageItem(
                     fontWeight = FontWeight.Black,
                     fontSize = 16.sp
                 )
+
+                // TAKİP ET Butonu
+                Button(
+                    onClick = {
+                        // Eylem daha sonra tanımlanacak
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.2f),
+                        contentColor = Color.White
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.6f)),
+                    shape = RoundedCornerShape(16.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp)
+                ) {
+                    Text(
+                        text = "TAKİP ET",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
 
             Column(
