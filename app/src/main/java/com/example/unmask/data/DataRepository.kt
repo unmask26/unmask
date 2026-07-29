@@ -1457,13 +1457,28 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         receiverGender: String,
         selectedCategory: String
     ): String {
+        // 🎯 Eğer receiverId bir nickname ise (UUID değilse), Firestore'dan gerçek UID'yi bulalım
+        var targetUid = receiverId
+        try {
+            if (targetUid.length < 20 || targetUid == receiverNickname) {
+                val docs = firestore.collection("users")
+                    .whereEqualTo("nickname", receiverNickname)
+                    .get()
+                    .await()
+                val match = docs.documents.firstOrNull()
+                if (match != null) {
+                    targetUid = match.id
+                }
+            }
+        } catch (_: Exception) {}
+
         val requestId = "req-" + UUID.randomUUID().toString()
         val request = DirectGameRequest(
             id = requestId,
             senderId = senderId,
             senderNickname = senderNickname,
             senderGender = senderGender,
-            receiverId = receiverId,
+            receiverId = targetUid,
             receiverNickname = receiverNickname,
             receiverGender = receiverGender,
             selectedCategory = selectedCategory,
@@ -1471,7 +1486,76 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             createdAt = System.currentTimeMillis()
         )
         firestore.collection("direct_game_requests").document(requestId).set(request).await()
+
+        // 🚀 ALICI CİHAZIN FCM TOKEN'INA PUSH BİLDİRİM GÖNDERME
+        try {
+            if (targetUid.isNotEmpty() && targetUid != "offline_demo_user") {
+                val userDoc = firestore.collection("users").document(targetUid).get().await()
+                val fcmToken = userDoc.getString("fcmToken")
+                if (!fcmToken.isNullOrEmpty()) {
+                    sendFcmPushNotification(fcmToken, senderNickname, selectedCategory, requestId)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         return requestId
+    }
+
+    private fun sendFcmPushNotification(token: String, senderNickname: String, category: String, requestId: String) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                val catName = when (category.lowercase()) {
+                    "iliskiler" -> "İLİŞKİLER"
+                    "adrenalin" -> "ADRENALİN"
+                    "bilgi" -> "BİLGİ"
+                    "aktuel" -> "AKTÜEL"
+                    "hatiralar" -> "HATIRALAR"
+                    "fanteziler" -> "FANTEZİLER"
+                    "adult" -> "ADULT (+18)"
+                    "softhub" -> "SOFTHUB"
+                    else -> category.takeIf { it.isNotBlank() }?.uppercase()
+                }
+                val bodyText = if (!catName.isNullOrBlank()) {
+                    "@$senderNickname size $catName lobisinde oyun daveti gönderdi! 🎮"
+                } else {
+                    "@$senderNickname sizinle oyun oynamak istiyor!"
+                }
+
+                val json = org.json.JSONObject().apply {
+                    put("to", token)
+                    put("priority", "high")
+                    put("notification", org.json.JSONObject().apply {
+                        put("title", "🎮 OYUN İSTEĞİ GELDİ!")
+                        put("body", bodyText)
+                        put("sound", "default")
+                    })
+                    put("data", org.json.JSONObject().apply {
+                        put("requestId", requestId)
+                        put("senderNickname", senderNickname)
+                        put("selectedCategory", category)
+                    })
+                }
+
+                val url = java.net.URL("https://fcm.googleapis.com/fcm/send")
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Authorization", "key=AAAA_unmask_fcm_key")
+                conn.doOutput = true
+
+                val os = conn.outputStream
+                os.write(json.toString().toByteArray(Charsets.UTF_8))
+                os.flush()
+                os.close()
+
+                val code = conn.responseCode
+                conn.disconnect()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     override fun observeIncomingGameRequests(userId: String): Flow<List<DirectGameRequest>> = callbackFlow {
@@ -1481,15 +1565,16 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     trySend(emptyList())
                     return@addSnapshotListener
                 }
-                val myNickname = _currentUser.value?.nickname ?: ""
-                val myDisplayName = _currentUser.value?.displayName ?: ""
-                val myBannedUsers = _currentUser.value?.bannedUsers ?: emptyList()
+                val current = _currentUser.value
+                val myNickname = current?.nickname ?: ""
+                val myDisplayName = current?.displayName ?: ""
+                val myBannedUsers = current?.bannedUsers ?: emptyList()
 
                 val requests = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(DirectGameRequest::class.java)
                 }.filter { req ->
                     val isBanned = myBannedUsers.contains(req.senderNickname) || myBannedUsers.contains(req.senderId)
-                    val isForMe = req.receiverId == userId ||
+                    val isForMe = (userId.isNotEmpty() && req.receiverId.equals(userId, ignoreCase = true)) ||
                                   (myNickname.isNotEmpty() && req.receiverId.equals(myNickname, ignoreCase = true)) ||
                                   (myNickname.isNotEmpty() && req.receiverNickname.equals(myNickname, ignoreCase = true)) ||
                                   (myDisplayName.isNotEmpty() && req.receiverNickname.equals(myDisplayName, ignoreCase = true))
