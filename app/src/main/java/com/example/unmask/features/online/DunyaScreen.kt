@@ -1782,12 +1782,12 @@ fun OnlineGameplayView(
                                                         // 🛡️ Cihaz içi NSFW (Müstehcen İçerik) Taraması (Adult lobisinde pasif)
                                                         val isAdultCategory = session.commonCategory.lowercase() == "adult"
                                                         if (!isAdultCategory) {
-                                                            val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, uriSnapshot)
+                                                            val nsfwResult = com.example.unmask.core.NSFWDetector.analyzeVideo(context, uriSnapshot, threshold = 0.85f)
                                                             if (nsfwResult.isNSFW) {
                                                                 withContext(Dispatchers.Main) {
                                                                     Toast.makeText(
                                                                         context,
-                                                                        "⚠️ UYARI: Videonuz topluluk kurallarına aykırı (NSFW) içerik barındırdığı için engellendi!",
+                                                                        "⚠️ UYARI: Videonuz topluluk kurallarına aykırı (NSFW) içerik engeline takıldı! Lütfen tekrar çekiniz.",
                                                                         Toast.LENGTH_LONG
                                                                     ).show()
                                                                 }

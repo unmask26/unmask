@@ -24,7 +24,7 @@ object NSFWDetector {
         context: Context,
         videoUri: Uri,
         frameCount: Int = 4,
-        threshold: Float = 0.70f
+        threshold: Float = 0.85f
     ): NSFWResult = withContext(Dispatchers.IO) {
         val retriever = MediaMetadataRetriever()
         try {
@@ -102,10 +102,11 @@ object NSFWDetector {
         val skinRatio = skinPixelCount.toFloat() / totalPixels.toFloat()
 
         return when {
-            skinRatio >= 0.55f -> 0.95f
-            skinRatio >= 0.45f -> 0.78f
-            skinRatio >= 0.35f -> 0.50f
-            skinRatio >= 0.25f -> 0.25f
+            skinRatio >= 0.65f -> 0.95f
+            skinRatio >= 0.55f -> 0.88f
+            skinRatio >= 0.45f -> 0.65f
+            skinRatio >= 0.35f -> 0.35f
+            skinRatio >= 0.25f -> 0.15f
             else -> 0.05f
         }
     }
