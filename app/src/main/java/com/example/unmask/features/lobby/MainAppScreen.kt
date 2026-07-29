@@ -353,12 +353,40 @@ fun MainAppScreen(
                             }
                         },
                         text = {
-                            Text(
-                                text = "@${req.senderNickname.ifEmpty { "Rakip" }} sizinle oyun oynamak istiyor.",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black.copy(alpha = 0.8f)
-                            )
+                            val catName = when (req.selectedCategory.lowercase()) {
+                                "iliskiler" -> "İLİŞKİLER"
+                                "adrenalin" -> "ADRENALİN"
+                                "bilgi" -> "BİLGİ"
+                                "aktuel" -> "AKTÜEL"
+                                "hatiralar" -> "HATIRALAR"
+                                "fanteziler" -> "FANTEZİLER"
+                                "adult" -> "ADULT (+18)"
+                                "softhub" -> "SOFTHUB"
+                                else -> req.selectedCategory.takeIf { it.isNotBlank() }?.uppercase()
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = "@${req.senderNickname.ifEmpty { "Rakip" }} sizinle oyun oynamak istiyor.",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                                if (!catName.isNullOrBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(Color(0xFF8B5CF6).copy(alpha = 0.15f), RoundedCornerShape(10.dp))
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = "🎯 Önerilen Lobi: $catName",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFF6D28D9)
+                                        )
+                                    }
+                                }
+                            }
                         },
                         confirmButton = {
                             Button(
@@ -370,7 +398,7 @@ fun MainAppScreen(
                                 shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("İSTEĞİ İNCELE & KABUL ET 🚀", fontWeight = FontWeight.Black, color = Color.White)
+                                Text("İSTEĞİ İNCELE & OYNA 🚀", fontWeight = FontWeight.Black, color = Color.White)
                             }
                         },
                         dismissButton = {
