@@ -48,7 +48,12 @@ class MainActivity : ComponentActivity() {
 
     enableEdgeToEdge()
     setContent {
-      UNMASKTheme { Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { MainNavigation() } }
+      UNMASKTheme { 
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { 
+            MainNavigation() 
+            com.example.unmask.update.UpdateCheckDialog(repoOwner = "unmask26", repoName = "unmask")
+        } 
+      }
     }
   }
 
