@@ -16,3 +16,8 @@ local.properties
 node_modules/
 functions/node_modules/
 *-firebase-adminsdk-*.json
+*.apk
+*.aab
+app/debug/
+build/
+app/build/
