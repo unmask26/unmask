@@ -1,12 +1,13 @@
 {
   "name": "unmask-notification-server",
   "version": "1.0.0",
-  "description": "UNMASK Render FCM Worker",
+  "description": "UNMASK Render FCM Worker (Web Service)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
+    "express": "^4.19.2",
     "firebase-admin": "^12.0.0"
   },
   "engines": {

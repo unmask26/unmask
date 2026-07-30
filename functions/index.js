@@ -1,4 +1,8 @@
 const admin = require("firebase-admin");
+const express = require("express");
+
+const app = express();
+const port = process.env.PORT || 3000;
 
 // Render Environment Variable üzerinden key'i okuyoruz
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -27,7 +31,6 @@ db.collection("direct_game_requests")
   }, (error) => {
     console.error("Firestore dinleme hatası:", error);
   });
-
 
 async function sendNotification(requestId, data) {
   const receiverId = data.receiverId || "";
@@ -91,3 +94,12 @@ async function sendNotification(requestId, data) {
     console.error(`FCM gönderim hatası (${requestId}):`, error);
   }
 }
+
+// Render.com Web Service'i olarak ücretsiz host edebilmek için sahte bir health-check endpoint'i
+app.get("/", (req, res) => {
+  res.send("UNMASK Bildirim Servisi Aktif ve Firestore dinleniyor!");
+});
+
+app.listen(port, () => {
+  console.log(`Web Service ${port} portunda HTTP isteklerini dinliyor...`);
+});
