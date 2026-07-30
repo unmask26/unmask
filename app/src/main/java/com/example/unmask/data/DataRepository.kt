@@ -1526,76 +1526,13 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             } catch (_: Exception) {}
         }
 
-        // 🚀 ALICI CİHAZIN FCM TOKEN'INA PUSH BİLDİRİM GÖNDERME
-        try {
-            if (targetUid.isNotEmpty() && targetUid != "offline_demo_user") {
-                val userDoc = firestore.collection("users").document(targetUid).get().await()
-                val fcmToken = userDoc.getString("fcmToken")
-                if (!fcmToken.isNullOrEmpty()) {
-                    sendFcmPushNotification(fcmToken, senderNickname, selectedCategory, requestId)
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        // FCM push bildirimi Firebase Cloud Function tarafından otomatik gönderilir.
+        // Kaynak: functions/index.js -> sendGameInviteNotification
 
         return requestId
     }
 
-    private fun sendFcmPushNotification(token: String, senderNickname: String, category: String, requestId: String) {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            try {
-                val catName = when (category.lowercase()) {
-                    "iliskiler" -> "İLİŞKİLER"
-                    "adrenalin" -> "ADRENALİN"
-                    "bilgi" -> "BİLGİ"
-                    "aktuel" -> "AKTÜEL"
-                    "hatiralar" -> "HATIRALAR"
-                    "fanteziler" -> "FANTEZİLER"
-                    "adult" -> "ADULT (+18)"
-                    "softhub" -> "SOFTHUB"
-                    else -> category.takeIf { it.isNotBlank() }?.uppercase()
-                }
-                val bodyText = if (!catName.isNullOrBlank()) {
-                    "@$senderNickname size $catName lobisinde oyun daveti gönderdi! 🎮"
-                } else {
-                    "@$senderNickname sizinle oyun oynamak istiyor!"
-                }
 
-                val json = org.json.JSONObject().apply {
-                    put("to", token)
-                    put("priority", "high")
-                    put("notification", org.json.JSONObject().apply {
-                        put("title", "🎮 OYUN İSTEĞİ GELDİ!")
-                        put("body", bodyText)
-                        put("sound", "default")
-                    })
-                    put("data", org.json.JSONObject().apply {
-                        put("requestId", requestId)
-                        put("senderNickname", senderNickname)
-                        put("selectedCategory", category)
-                    })
-                }
-
-                val url = java.net.URL("https://fcm.googleapis.com/fcm/send")
-                val conn = url.openConnection() as java.net.HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("Authorization", "key=AAAA_unmask_fcm_key")
-                conn.doOutput = true
-
-                val os = conn.outputStream
-                os.write(json.toString().toByteArray(Charsets.UTF_8))
-                os.flush()
-                os.close()
-
-                val code = conn.responseCode
-                conn.disconnect()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
 
     override fun observeIncomingGameRequests(userId: String): Flow<List<DirectGameRequest>> = callbackFlow {
         val listener = firestore.collection("direct_game_requests")

@@ -29,15 +29,16 @@ class MainActivity : ComponentActivity() {
     NotificationWorker.scheduleBackgroundWorker(this)
 
     try {
-        val serviceIntent = Intent(this, GameNotificationService::class.java)
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+        notificationManager.cancel(1001)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
+            notificationManager.deleteNotificationChannel("game_service_bg_channel")
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
+        val stopIntent = Intent().apply {
+            component = android.content.ComponentName(packageName, "com.example.unmask.core.GameNotificationService")
+        }
+        stopService(stopIntent)
+    } catch (_: Exception) {}
 
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
         if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
