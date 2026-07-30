@@ -12,7 +12,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.draw.shadow
 import androidx.compose.material3.*
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+
+
 import com.example.unmask.data.DataRepository
 import com.example.unmask.data.DirectGameRequest
 import com.example.unmask.data.OnlineOpponentHistory
@@ -130,7 +136,180 @@ fun GecmisScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
 
-                // ─── 📦 1. BOX (EN ÜST): SİZE DAVET GÖNDEREN KULLANICILAR (GELEN İSTEKLER) ──────────
+                // ─── 📦 0. BOX: DAVET ET
+        item {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(8.dp, RoundedCornerShape(24.dp), clip = true)
+                    .border(
+                        BorderStroke(
+                            width = 1.5.dp,
+                            brush = Brush.linearGradient(
+                                colors = listOf(Color.White.copy(alpha = 0.6f), Color.White.copy(alpha = 0.1f))
+                            )
+                        ),
+                        shape = RoundedCornerShape(24.dp)
+                    )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(
+                                    Color(0xFF4F46E5), // Indigo
+                                    Color(0xFF7C3AED), // Purple
+                                    Color(0xFFDB2777)  // Pinkish Red
+                                )
+                            )
+                        )
+                        .padding(20.dp)
+                ) {
+                    var username by remember { mutableStateOf("") }
+                    val context = LocalContext.current
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = "Davet Et",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "OYUNA DAVET ET",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 18.sp,
+                                    color = Color.White,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Text(
+                                    text = "Kullanıcı adı ile anında istek gönder",
+                                    fontSize = 11.sp,
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            placeholder = {
+                                Text(
+                                    "Kullanıcı adı (ör: @nickname)",
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 14.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.7f)
+                                )
+                            },
+                            trailingIcon = {
+                                if (username.isNotEmpty()) {
+                                    IconButton(onClick = { username = "" }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Clear,
+                                            contentDescription = "Temizle",
+                                            tint = Color.White.copy(alpha = 0.7f)
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.Black.copy(alpha = 0.2f),
+                                unfocusedContainerColor = Color.Black.copy(alpha = 0.15f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = Color.White,
+                                focusedBorderColor = Color.White.copy(alpha = 0.8f),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Button(
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color(0xFF4F46E5),
+                                disabledContainerColor = Color.White.copy(alpha = 0.4f),
+                                disabledContentColor = Color.White.copy(alpha = 0.6f)
+                            ),
+                            shape = RoundedCornerShape(14.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            onClick = {
+                                coroutineScope.launch {
+                                    val senderNickname = currentUserProfile?.nickname ?: currentUserProfile?.displayName ?: "Oyuncu"
+                                    val senderGender = currentUserProfile?.gender ?: "Erkek"
+                                    try {
+                                        repository.sendDirectGameRequest(
+                                            senderId = userId,
+                                            senderNickname = senderNickname,
+                                            senderGender = senderGender,
+                                            receiverId = "",
+                                            receiverNickname = username.trim().removePrefix("@"),
+                                            receiverGender = "Erkek",
+                                            selectedCategory = ""
+                                        )
+                                        Toast.makeText(context, "DAVET @${username.trim().removePrefix("@")} kullanıcısına gönderildi!", Toast.LENGTH_SHORT).show()
+                                        username = ""
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Hata: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            enabled = username.isNotBlank()
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "DAVET GÖNDER",
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ─── 📦 1. BOX (EN ÜST): SİZE DAVET GÖNDEREN KULLANICILAR (GELEN İSTEKLER) ──────────
                 item {
                     Card(
                         shape = RoundedCornerShape(24.dp),
@@ -787,7 +966,7 @@ fun GecmisScreen(
                             color = Color.Black.copy(alpha = 0.7f)
                         )
 
-                        Divider(color = Color.Black.copy(alpha = 0.1f))
+                        HorizontalDivider(color = Color.Black.copy(alpha = 0.1f))
 
                         Text("Oyun Lobisi Seçin:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
 
@@ -866,7 +1045,7 @@ fun GecmisScreen(
                             color = Color.Black.copy(alpha = 0.7f)
                         )
 
-                        Divider(color = Color.Black.copy(alpha = 0.1f))
+                        HorizontalDivider(color = Color.Black.copy(alpha = 0.1f))
 
                         categories.chunked(2).forEach { pair ->
                             Row(
