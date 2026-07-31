@@ -1184,6 +1184,51 @@ fun OnlineGameplayView(
     var showCamera by remember { mutableStateOf(false) }
     var isRecording by remember { mutableStateOf(false) }
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
+
+    if (showExitConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitConfirmDialog = false },
+            title = {
+                Text(
+                    text = "OYUNU BİTİR?",
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    color = Color.Black
+                )
+            },
+            text = {
+                Text(
+                    text = "Oyundan çıkmak istediğinize emin misiniz? Oyun seansı sonlandırılacaktır.",
+                    fontSize = 14.sp,
+                    color = Color.Black.copy(alpha = 0.7f)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitConfirmDialog = false
+                        onCloseSession()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("OYUNU BİTİR", fontWeight = FontWeight.Black, color = Color.White)
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showExitConfirmDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5E7EB)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("DEVAM ET", fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+            },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = Color.White
+        )
+    }
 
     // Prevent screen recording and screenshots while taking video in online sessions
     val activityWindow = (context as? android.app.Activity)?.window
@@ -1380,7 +1425,7 @@ fun OnlineGameplayView(
                     }
                     
                     Button(
-                        onClick = onCloseSession,
+                        onClick = { showExitConfirmDialog = true },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
@@ -1967,7 +2012,7 @@ fun OnlineGameplayView(
                                         )
                                     }
                                     Button(
-                                         onClick = onCloseSession,
+                                         onClick = { showExitConfirmDialog = true },
                                          colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
                                          shape = RoundedCornerShape(12.dp),
                                          contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
@@ -2054,7 +2099,7 @@ fun OnlineGameplayView(
                                         color = Color.Black.copy(alpha = 0.4f)
                                     )
                                 }
-                                IconButton(onClick = onCloseSession) {
+                                IconButton(onClick = { showExitConfirmDialog = true }) {
                                     Icon(imageVector = Icons.Default.Close, contentDescription = "Exit", tint = Color.Black)
                                 }
                             }
@@ -2453,7 +2498,7 @@ fun OnlineGameplayView(
                                         color = Color.Black.copy(alpha = 0.4f)
                                     )
                                 }
-                                IconButton(onClick = onCloseSession) {
+                                IconButton(onClick = { showExitConfirmDialog = true }) {
                                     Icon(imageVector = Icons.Default.Close, contentDescription = "Exit", tint = Color.Black)
                                 }
                             }
