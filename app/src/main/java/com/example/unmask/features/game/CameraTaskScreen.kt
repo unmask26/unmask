@@ -116,6 +116,19 @@ fun CameraTaskScreen(
     var isRecording by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
 
+    // Prevent screen recording and screenshots while taking video
+    val activityWindow = (context as? android.app.Activity)?.window
+    DisposableEffect(isRecording) {
+        if (isRecording) {
+            activityWindow?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activityWindow?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        onDispose {
+            activityWindow?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
     // Camera and Audio permissions
     val permissions = remember {
         mutableListOf(

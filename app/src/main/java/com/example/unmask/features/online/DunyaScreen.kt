@@ -1184,6 +1184,19 @@ fun OnlineGameplayView(
     var showCamera by remember { mutableStateOf(false) }
     var isRecording by remember { mutableStateOf(false) }
     var activeRecording by remember { mutableStateOf<Recording?>(null) }
+
+    // Prevent screen recording and screenshots while taking video in online sessions
+    val activityWindow = (context as? android.app.Activity)?.window
+    DisposableEffect(isRecording, showCamera) {
+        if (isRecording || showCamera) {
+            activityWindow?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            activityWindow?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+        onDispose {
+            activityWindow?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
     val videoCaptureState = remember { mutableStateOf<VideoCapture<Recorder>?>(null) }
     var recordingTimeRemaining by remember { mutableStateOf(30) }
     var recordingJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
