@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
@@ -276,6 +277,25 @@ fun MainAppScreen(
                 )
 
                 NavigationDrawerItem(
+                    label = { Text("Satın Al 🛒", fontWeight = FontWeight.Bold, color = Color(0xFF10B981)) },
+                    icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Satın Al", tint = Color(0xFF10B981)) },
+                    selected = activeTab == "buyCard",
+                    onClick = {
+                        coroutineScope.launch { drawerState.close() }
+                        activeTab = "buyCard"
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = Color(0xFF10B981).copy(alpha = 0.1f),
+                        unselectedContainerColor = Color.Transparent,
+                        selectedTextColor = Color(0xFF10B981),
+                        unselectedTextColor = Color(0xFF10B981),
+                        selectedIconColor = Color(0xFF10B981),
+                        unselectedIconColor = Color(0xFF10B981)
+                    ),
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+
+                NavigationDrawerItem(
                     label = { Text("Çıkış Yap", fontWeight = FontWeight.Bold, color = Color.Red) },
                     icon = { Icon(Icons.Default.Logout, contentDescription = "Çıkış", tint = Color.Red) },
                     selected = false,
@@ -351,6 +371,12 @@ fun MainAppScreen(
                         }
                     )
                     "createGame" -> CreateGameScreen(
+                        repository = repository,
+                        onBack = {
+                            activeTab = "oyun"
+                        }
+                    )
+                    "buyCard" -> BuyCardScreen(
                         repository = repository,
                         onBack = {
                             activeTab = "oyun"
