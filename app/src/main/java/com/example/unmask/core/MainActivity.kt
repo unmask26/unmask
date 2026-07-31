@@ -24,6 +24,12 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
 
+    // Global protection against screen recording and screenshots (prevents video recording capture & playback recording on all devices)
+    window.setFlags(
+        android.view.WindowManager.LayoutParams.FLAG_SECURE,
+        android.view.WindowManager.LayoutParams.FLAG_SECURE
+    )
+
     GameNotificationManager.createNotificationChannel(this)
     FCMTokenManager.initAndSyncFCMToken(this)
     NotificationWorker.scheduleBackgroundWorker(this)
