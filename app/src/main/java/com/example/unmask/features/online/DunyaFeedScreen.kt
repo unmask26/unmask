@@ -380,8 +380,9 @@ fun ReelsPageItem(
                 val myNickname = currentUser?.nickname?.takeIf { it.isNotBlank() } ?: "Oyuncu"
                 val isMyOwnVideo = video.userId == currentUserId || 
                                    (myNickname.isNotEmpty() && video.userName.equals(myNickname, ignoreCase = true))
+                val isPromoVideo = video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)
 
-                if (!isMyOwnVideo) {
+                if (!isMyOwnVideo && !isPromoVideo) {
                     val isFollowing = currentUser?.following?.contains(video.userName) == true
 
                     // TAKİP ET / TAKİPTESİN Butonu
