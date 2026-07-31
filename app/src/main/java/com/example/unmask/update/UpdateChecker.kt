@@ -31,8 +31,18 @@ fun isNewerVersion(remoteTag: String, localVersionName: String): Boolean {
         val cleanRemote = remoteTag.trim().removePrefix("v").removePrefix("V")
         val cleanLocal = localVersionName.trim().removePrefix("v").removePrefix("V")
 
-        val remoteParts = cleanRemote.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
-        val localParts = cleanLocal.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+        if (cleanRemote.equals(cleanLocal, ignoreCase = true)) return false
+
+        val remoteParts = cleanRemote.split(".").mapNotNull { part ->
+            val digits = part.takeWhile { char -> char.isDigit() }
+            if (digits.isNotEmpty()) digits.toIntOrNull() else null
+        }
+        val localParts = cleanLocal.split(".").mapNotNull { part ->
+            val digits = part.takeWhile { char -> char.isDigit() }
+            if (digits.isNotEmpty()) digits.toIntOrNull() else null
+        }
+
+        if (remoteParts.isEmpty() || localParts.isEmpty()) return false
 
         val maxLength = maxOf(remoteParts.size, localParts.size)
         for (i in 0 until maxLength) {
