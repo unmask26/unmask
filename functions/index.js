@@ -92,17 +92,18 @@ async function sendVideoNotification(sessionId, sessionData) {
 
   const message = {
     token: fcmToken,
-    notification: {
-      title: title,
-      body: body,
-    },
     android: {
       priority: "high",
+      ttl: 0,
       notification: {
         title: title,
         body: body,
         sound: "default",
         channelId: "game_invitations_channel",
+        defaultSound: true,
+        defaultVibrateTimings: true,
+        notificationPriority: "PRIORITY_MAX",
+        visibility: "PUBLIC",
       },
     },
     data: {
@@ -110,6 +111,8 @@ async function sendVideoNotification(sessionId, sessionData) {
       sessionId: sessionId,
       senderNickname: senderNickname,
       videoUrl: sessionData.videoUrl || "",
+      title: title,
+      body: body,
     },
   };
 

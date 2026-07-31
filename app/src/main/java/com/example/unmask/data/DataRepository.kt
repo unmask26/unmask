@@ -145,6 +145,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 val user = firebaseAuth.currentUser
                 if (user != null) {
                     listenToUserProfile(user.uid)
+                    com.example.unmask.core.FCMTokenManager.initAndSyncFCMToken(context)
                 } else {
                     // Only clear user if we are NOT logged in as a local offline user
                     if (_currentUser.value?.uid != "offline_demo_user") {
