@@ -427,34 +427,70 @@ fun ReelsPageItem(
                     lineHeight = 20.sp
                 )
 
-                // Açıklama Kutusu (Description Box)
-                if (video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)) {
+                // Açıklama Kutusu (Description Box) & Özel SATIN AL Butonu
+                val isPromoVideo = video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)
+                if (isPromoVideo) {
                     Card(
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.75f)),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFACC15).copy(alpha = 0.9f)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.85f)),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFACC15)),
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 6.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "Açıklama",
-                                tint = Color(0xFFFACC15),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "fiziki kart satın almak için profil ayarlarından satın alabilirsiniz.",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Açıklama",
+                                    tint = Color(0xFFFACC15),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "fiziki kart satın almak için profil ayarlarından satın alabilirsiniz.",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+
+                            // Sadece Bu Videoya Özel SATIN AL Butonu
+                            Button(
+                                onClick = {
+                                    Toast.makeText(
+                                        context,
+                                        "🛒 Fiziki Kart Satın Alma: Profil Ayarları sayfasından satın alma yapabilirsiniz.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF10B981),
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingCart,
+                                    contentDescription = "Satın Al",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "🛒 SATIN AL",
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 13.sp
+                                )
+                            }
                         }
                     }
                 }
@@ -533,29 +569,32 @@ fun ReelsPageItem(
             }
         }
 
-        // Top Right overlay (Timer chip)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier
-                .statusBarsPadding()
-                .align(Alignment.TopEnd)
-                .padding(top = 16.dp, end = 20.dp)
-                .background(Color(0xFFEF4444).copy(alpha = 0.9f), RoundedCornerShape(20.dp))
-                .padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Timer,
-                contentDescription = "Süre",
-                tint = Color.White,
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "$remainingMins dk kaldı",
-                color = Color.White,
-                fontWeight = FontWeight.Black,
-                fontSize = 12.sp
-            )
+        // Top Right overlay (Timer chip - hidden on promo video)
+        val isPromoVideo = video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)
+        if (!isPromoVideo) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .align(Alignment.TopEnd)
+                    .padding(top = 16.dp, end = 20.dp)
+                    .background(Color(0xFFEF4444).copy(alpha = 0.9f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Timer,
+                    contentDescription = "Süre",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "$remainingMins dk kaldı",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 12.sp
+                )
+            }
         }
 
         // Center Volume Indicator Overlay
