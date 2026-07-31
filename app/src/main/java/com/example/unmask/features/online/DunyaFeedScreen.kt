@@ -49,9 +49,27 @@ import java.util.UUID
 fun DunyaFeedScreen(
     repository: DataRepository
 ) {
-    val publicVideos by repository.getPublicVideos().collectAsState(initial = emptyList())
+    val rawPublicVideos by repository.getPublicVideos().collectAsState(initial = emptyList())
     val currentUser by repository.currentUser.collectAsState(initial = null)
     val currentUserId = currentUser?.uid ?: ""
+
+    val permanentPromoVideo = remember {
+        PublicVideo(
+            id = "permanent_promo_fiziki_kart",
+            userId = "unmask_official",
+            userName = "UNMASK",
+            videoUrl = "asset:///promo_fiziki_kart.mp4",
+            gameName = "FİZİKİ KART OYUNU 🎴",
+            taskText = "fiziki kart satın almak için profil ayarlarından satın alabilirsiniz.",
+            createdAt = 1700000000000L, // Fixed past timestamp: new videos will have higher timestamp and shift it down
+            expiresAt = Long.MAX_VALUE // Never deleted
+        )
+    }
+
+    val publicVideos = remember(rawPublicVideos) {
+        val listWithoutPromo = rawPublicVideos.filter { it.id != permanentPromoVideo.id }
+        (listWithoutPromo + permanentPromoVideo).sortedByDescending { it.createdAt }
+    }
     
     var isMuted by remember { mutableStateOf(true) }
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -245,6 +263,21 @@ fun ReelsPageItem(
                         
                         val cachedFile = com.example.unmask.data.VideoCacheManager.getCachedVideoFile(context, video.videoUrl)
                         val videoUri = when {
+                            video.videoUrl == "asset:///promo_fiziki_kart.mp4" || video.videoUrl.contains("promo_fiziki_kart.mp4") -> {
+                                val assetFile = java.io.File(context.cacheDir, "promo_fiziki_kart.mp4")
+                                if (!assetFile.exists() || assetFile.length() == 0L) {
+                                    try {
+                                        context.assets.open("promo_fiziki_kart.mp4").use { input ->
+                                            assetFile.outputStream().use { output ->
+                                                input.copyTo(output)
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                                Uri.fromFile(assetFile)
+                            }
                             cachedFile != null -> Uri.fromFile(cachedFile)
                             video.videoUrl.startsWith("/") -> Uri.fromFile(java.io.File(video.videoUrl))
                             video.videoUrl.startsWith("file://") -> Uri.parse(video.videoUrl)
@@ -393,6 +426,38 @@ fun ReelsPageItem(
                     fontSize = 15.sp,
                     lineHeight = 20.sp
                 )
+
+                // Açıklama Kutusu (Description Box)
+                if (video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)) {
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.75f)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFACC15).copy(alpha = 0.9f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Açıklama",
+                                tint = Color(0xFFFACC15),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "fiziki kart satın almak için profil ayarlarından satın alabilirsiniz.",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
             }
         }
 
