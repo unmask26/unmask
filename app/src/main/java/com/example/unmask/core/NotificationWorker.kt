@@ -40,6 +40,27 @@ class NotificationWorker(
             for (req in requests) {
                 GameNotificationManager.showGameInviteNotification(applicationContext, req)
             }
+
+            // 2. Online seanslarda gelen izlenmemiş videoları kontrol et (Uygulama kapalıyken güvence mekanizması)
+            val s1 = firestore.collection("online_sessions").whereEqualTo("user1Id", savedUid).get().await()
+            val s2 = firestore.collection("online_sessions").whereEqualTo("user2Id", savedUid).get().await()
+            val allSessions = (s1.documents + s2.documents).mapNotNull { it.toObject(com.example.unmask.data.OnlineSession::class.java) }
+
+            for (session in allSessions) {
+                val videoUrl = session.videoUrl
+                val senderId = session.videoSenderId
+                val isWatched = session.videoWatchedByReceiver
+
+                if (videoUrl.isNotEmpty() && senderId.isNotEmpty() && senderId != savedUid && !isWatched) {
+                    val senderName = if (session.user1Id == savedUid) session.user2Name else session.user1Name
+                    val uniqueKey = "${session.id}_${videoUrl.hashCode()}"
+                    GameNotificationManager.showVideoReceivedNotification(
+                        applicationContext,
+                        senderNickname = senderName,
+                        notificationIdKey = uniqueKey
+                    )
+                }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }

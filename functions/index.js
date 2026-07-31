@@ -87,13 +87,20 @@ async function sendVideoNotification(sessionId, sessionData) {
     return;
   }
 
+  const title = "📹 YENİ VİDEO!";
+  const body = `@${senderNickname} size bir video gönderdi`;
+
   const message = {
     token: fcmToken,
+    notification: {
+      title: title,
+      body: body,
+    },
     android: {
       priority: "high",
       notification: {
-        title: "📹 YENİ VİDEO!",
-        body: `@${senderNickname} size bir video gönderdi`,
+        title: title,
+        body: body,
         sound: "default",
         channelId: "game_invitations_channel",
       },
