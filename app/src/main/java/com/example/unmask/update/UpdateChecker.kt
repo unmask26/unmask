@@ -24,6 +24,29 @@ import java.net.URL
 
 data class UpdateInfo(val versionName: String, val downloadUrl: String)
 
+private var hasCheckedUpdateThisSession = false
+
+fun isNewerVersion(remoteTag: String, localVersionName: String): Boolean {
+    try {
+        val cleanRemote = remoteTag.trim().removePrefix("v").removePrefix("V")
+        val cleanLocal = localVersionName.trim().removePrefix("v").removePrefix("V")
+
+        val remoteParts = cleanRemote.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+        val localParts = cleanLocal.split(".").mapNotNull { it.takeWhile { char -> char.isDigit() }.toIntOrNull() }
+
+        val maxLength = maxOf(remoteParts.size, localParts.size)
+        for (i in 0 until maxLength) {
+            val remoteVal = remoteParts.getOrElse(i) { 0 }
+            val localVal = localParts.getOrElse(i) { 0 }
+            if (remoteVal > localVal) return true
+            if (remoteVal < localVal) return false
+        }
+        return false
+    } catch (e: Exception) {
+        return false
+    }
+}
+
 @Composable
 fun UpdateCheckDialog(repoOwner: String, repoName: String) {
     val context = LocalContext.current
@@ -31,6 +54,9 @@ fun UpdateCheckDialog(repoOwner: String, repoName: String) {
     var showDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        if (hasCheckedUpdateThisSession) return@LaunchedEffect
+        hasCheckedUpdateThisSession = true
+
         withContext(Dispatchers.IO) {
             try {
                 val url = URL("https://api.github.com/repos/$repoOwner/$repoName/releases/latest")
@@ -42,9 +68,12 @@ fun UpdateCheckDialog(repoOwner: String, repoName: String) {
                     val response = connection.inputStream.bufferedReader().use { it.readText() }
                     val json = JSONObject(response)
                     val tagName = json.getString("tag_name")
-                    val currentVersion = "v" + context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                    val currentVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
                     
-                    if (tagName != currentVersion) {
+                    val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+                    val dismissedVersion = prefs.getString("dismissed_version", null)
+
+                    if (dismissedVersion != tagName && isNewerVersion(tagName, currentVersion)) {
                         val assets = json.getJSONArray("assets")
                         if (assets.length() > 0) {
                             val downloadUrl = assets.getJSONObject(0).getString("browser_download_url")
@@ -61,7 +90,11 @@ fun UpdateCheckDialog(repoOwner: String, repoName: String) {
 
     if (showDialog && updateInfo != null) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
+            onDismissRequest = {
+                val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putString("dismissed_version", updateInfo!!.versionName).apply()
+                showDialog = false
+            },
             title = { Text("Yeni Güncelleme Mevcut") },
             text = { Text("Uygulamanın yeni bir sürümü (${updateInfo!!.versionName}) bulundu. İndirip kurmak ister misiniz?") },
             confirmButton = {
@@ -73,7 +106,11 @@ fun UpdateCheckDialog(repoOwner: String, repoName: String) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) {
+                TextButton(onClick = {
+                    val prefs = context.getSharedPreferences("update_prefs", Context.MODE_PRIVATE)
+                    prefs.edit().putString("dismissed_version", updateInfo!!.versionName).apply()
+                    showDialog = false
+                }) {
                     Text("Daha Sonra")
                 }
             }

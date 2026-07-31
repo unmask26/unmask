@@ -32,6 +32,79 @@ db.collection("direct_game_requests")
     console.error("Firestore dinleme hatası:", error);
   });
 
+// online_sessions koleksiyonunda video yüklendiğinde bildirim gönder
+db.collection("online_sessions")
+  .onSnapshot((snapshot) => {
+    snapshot.docChanges().forEach(async (change) => {
+      if (change.type === "added" || change.type === "modified") {
+        const newData = change.doc.data();
+        const oldData = change.type === "modified" && change.before ? change.before.data() : null;
+
+        const videoUrl = newData.videoUrl || "";
+        const videoSenderId = newData.videoSenderId || "";
+
+        if (videoUrl && videoSenderId) {
+          if (oldData && oldData.videoUrl === videoUrl) {
+            return;
+          }
+
+          const sessionId = change.doc.id;
+          await sendVideoNotification(sessionId, newData);
+        }
+      }
+    });
+  }, (error) => {
+    console.error("online_sessions Firestore dinleme hatası:", error);
+  });
+
+async function sendVideoNotification(sessionId, sessionData) {
+  const videoSenderId = sessionData.videoSenderId || "";
+  const user1Id = sessionData.user1Id || "";
+  const user2Id = sessionData.user2Id || "";
+
+  const receiverId = videoSenderId === user1Id ? user2Id : user1Id;
+  const senderNickname = (videoSenderId === user1Id ? sessionData.user1Name : sessionData.user2Name) || "Rakip";
+
+  if (!receiverId) {
+    console.log("Video bildirimi için receiverId bulunamadı.");
+    return;
+  }
+
+  const userDoc = await db.collection("users").doc(receiverId).get();
+  const fcmToken = userDoc.data()?.fcmToken;
+
+  if (!fcmToken) {
+    console.log(`Kullanıcı ${receiverId} için FCM token bulunamadı.`);
+    return;
+  }
+
+  const message = {
+    token: fcmToken,
+    android: {
+      priority: "high",
+      notification: {
+        title: "📹 YENİ VİDEO!",
+        body: `@${senderNickname} size bir video gönderdi`,
+        sound: "default",
+        channelId: "game_invitations_channel",
+      },
+    },
+    data: {
+      type: "online_game_video",
+      sessionId: sessionId,
+      senderNickname: senderNickname,
+      videoUrl: sessionData.videoUrl || "",
+    },
+  };
+
+  try {
+    const response = await admin.messaging().send(message);
+    console.log(`Video FCM bildirimi başarıyla gönderildi (${sessionId}):`, response);
+  } catch (error) {
+    console.error(`Video FCM gönderim hatası (${sessionId}):`, error);
+  }
+}
+
 async function sendNotification(requestId, data) {
   const receiverId = data.receiverId || "";
   const senderNickname = data.senderNickname || "Bir oyuncu";

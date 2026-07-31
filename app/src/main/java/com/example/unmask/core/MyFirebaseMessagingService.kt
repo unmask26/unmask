@@ -16,9 +16,24 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
         val data = remoteMessage.data
         if (data.isNotEmpty()) {
+            val type = data["type"] ?: ""
+            val senderNickname = data["senderNickname"] ?: "Bir oyuncu"
+            val sessionId = data["sessionId"] ?: data["requestId"] ?: System.currentTimeMillis().toString()
+
+            if (type == "online_game_video") {
+                // Eğer oyun ekranı aktifse (uygulama açık ve oyun sekmesindeyse) bildirim olmasın
+                if (GameScreenTracker.isGameScreenActive) return
+
+                GameNotificationManager.showVideoReceivedNotification(
+                    applicationContext,
+                    senderNickname = senderNickname,
+                    notificationIdKey = sessionId
+                )
+                return
+            }
+
             val requestId = data["requestId"] ?: System.currentTimeMillis().toString()
             val senderId = data["senderId"] ?: ""
-            val senderNickname = data["senderNickname"] ?: "Bir oyuncu"
             val selectedCategory = data["selectedCategory"] ?: ""
 
             val request = DirectGameRequest(
@@ -30,8 +45,25 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
             GameNotificationManager.showGameInviteNotification(applicationContext, request)
         } else if (remoteMessage.notification != null) {
-            val title = remoteMessage.notification?.title ?: "🎮 OYUN İSTEĞİ GELDİ!"
-            val body = remoteMessage.notification?.body ?: "Sizinle oyun oynamak isteyen biri var!"
+            val title = remoteMessage.notification?.title ?: ""
+            val body = remoteMessage.notification?.body ?: ""
+
+            if (body.contains("video gönderdi", ignoreCase = true)) {
+                if (GameScreenTracker.isGameScreenActive) return
+
+                val senderNickname = if (body.startsWith("@")) {
+                    body.substringAfter("@").substringBefore(" ").trim()
+                } else {
+                    "Rakip"
+                }
+
+                GameNotificationManager.showVideoReceivedNotification(
+                    applicationContext,
+                    senderNickname = senderNickname,
+                    notificationIdKey = System.currentTimeMillis().toString()
+                )
+                return
+            }
 
             val request = DirectGameRequest(
                 id = System.currentTimeMillis().toString(),

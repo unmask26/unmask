@@ -98,4 +98,48 @@ object GameNotificationManager {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(request.id.hashCode(), builder.build())
     }
+
+    fun showVideoReceivedNotification(context: Context, senderNickname: String, notificationIdKey: String = "") {
+        val uniqueKey = notificationIdKey.ifEmpty { System.currentTimeMillis().toString() }
+        if (notifiedRequestIds.contains(uniqueKey)) return
+        notifiedRequestIds.add(uniqueKey)
+
+        createNotificationChannel(context)
+
+        val sender = senderNickname.ifEmpty { "Rakip" }
+        val title = "📹 YENİ VİDEO!"
+        val content = "@$sender size bir video gönderdi"
+
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("navigate_to", "oyun")
+        }
+
+        val pendingIntent = PendingIntent.getActivity(
+            context,
+            uniqueKey.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val soundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(content))
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setSound(soundUri)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .setVibrate(longArrayOf(0, 400, 200, 400))
+
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(uniqueKey.hashCode(), builder.build())
+    }
 }
+

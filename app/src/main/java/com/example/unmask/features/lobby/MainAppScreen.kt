@@ -53,6 +53,23 @@ fun MainAppScreen(
     val coroutineScope = rememberCoroutineScope()
 
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Sync activeTab with global GameScreenTracker
+    LaunchedEffect(activeTab) {
+        com.example.unmask.core.GameScreenTracker.isGameTabSelected = (activeTab == "oyun")
+    }
+
+    // Check intent for navigate_to extra (e.g. when user clicks notification)
+    DisposableEffect(Unit) {
+        val activity = context as? android.app.Activity
+        val target = activity?.intent?.getStringExtra("navigate_to")
+        if (target == "oyun") {
+            activeTab = "oyun"
+            activity.intent?.removeExtra("navigate_to")
+        }
+        onDispose {}
+    }
+
     LaunchedEffect(Unit) {
         repository.getPublicVideos().collect { videos ->
             videos.forEach { video ->
@@ -83,6 +100,26 @@ fun MainAppScreen(
     val activeSession by remember(userId) {
         if (userId != null) repository.observeActiveSession(userId) else kotlinx.coroutines.flow.flowOf(null)
     }.collectAsState(initial = null)
+
+    // Trigger notification when opponent sends a video while user is in another tab (not "oyun")
+    var lastNotifiedVideoUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(activeSession?.videoUrl, activeTab) {
+        val session = activeSession
+        val videoUrl = session?.videoUrl
+        if (session != null && !videoUrl.isNullOrEmpty() && session.videoSenderId != userId) {
+            if (videoUrl != lastNotifiedVideoUrl) {
+                lastNotifiedVideoUrl = videoUrl
+                if (activeTab != "oyun") {
+                    val senderName = if (session.user1Id == userId) session.user2Name else session.user1Name
+                    com.example.unmask.core.GameNotificationManager.showVideoReceivedNotification(
+                        context = context,
+                        senderNickname = senderName,
+                        notificationIdKey = "${session.id}_${videoUrl.hashCode()}"
+                    )
+                }
+            }
+        }
+    }
 
     var activeToastRequest by remember { mutableStateOf<com.example.unmask.data.DirectGameRequest?>(null) }
     var lastHandledRequestId by remember { mutableStateOf<String?>(null) }

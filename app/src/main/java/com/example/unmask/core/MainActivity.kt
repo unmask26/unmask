@@ -57,8 +57,19 @@ class MainActivity : ComponentActivity() {
     }
   }
 
+  override fun onResume() {
+      super.onResume()
+      GameScreenTracker.isAppInForeground = true
+  }
+
+  override fun onPause() {
+      super.onPause()
+      GameScreenTracker.isAppInForeground = false
+  }
+
   override fun onStop() {
       super.onStop()
+      GameScreenTracker.isAppInForeground = false
       NotificationWorker.triggerImmediateCheck(this)
   }
 }

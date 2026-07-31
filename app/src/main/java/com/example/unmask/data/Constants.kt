@@ -20,8 +20,8 @@ object Constants {
     const val CLOUDFLARE_WORKER_URL = "https://unmask-api.kullaniciadi.workers.dev/upload"
 
     // Cloudflare R2 Credentials for unmask-media bucket
-    const val CLOUDFLARE_R2_ACCESS_KEY_ID = "204f31ebb70c94820bf9ba05010ce988"
-    const val CLOUDFLARE_R2_SECRET_ACCESS_KEY = "b5209849f68794ed9e0bf326b99efb132211c144faf16d39b4d1c3d855a7908e"
+    const val CLOUDFLARE_R2_ACCESS_KEY_ID = "e1c47ce21cb9556fb19d0e40bc860cbd"
+    const val CLOUDFLARE_R2_SECRET_ACCESS_KEY = "61fd1be3a813f781af94d3e2775ad2a93236ca02472883503ed28e110f8d0f07"
     const val CLOUDFLARE_R2_ENDPOINT = "https://16cc0e54adb7da4e63569465732c7fd3.r2.cloudflarestorage.com"
     const val CLOUDFLARE_R2_BUCKET_NAME = "unmask-media"
     const val CLOUDFLARE_R2_PUBLIC_URL_PREFIX = "https://pub-19fc7d3b5fd346469c66b68b27cb61e3.r2.dev"
