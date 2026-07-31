@@ -143,7 +143,8 @@ data class OnlineSession(
     val replayRequesterId: String = "",
     val replayRequesterName: String = "",
     val endedByUserId: String = "",
-    val endedByUserName: String = ""
+    val endedByUserName: String = "",
+    val videoWatchedByReceiver: Boolean = false
 )
 
 @Serializable

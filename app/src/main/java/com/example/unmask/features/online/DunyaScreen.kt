@@ -2111,6 +2111,11 @@ fun OnlineGameplayView(
                         if (session.videoUrl.isNotEmpty()) {
                             isCaching = true
                             localVideoPath = null
+                            if (!session.videoWatchedByReceiver) {
+                                try {
+                                    repository.updateSession(session.copy(videoWatchedByReceiver = true))
+                                } catch (_: Exception) {}
+                            }
                             try {
                                 val cachedFile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                                     // videoUrl'in hash'ini kullanarak her farklı video için benzersiz cache dosyası oluştur

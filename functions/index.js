@@ -32,25 +32,34 @@ db.collection("direct_game_requests")
     console.error("Firestore dinleme hatası:", error);
   });
 
+const sentVideoNotifications = new Map();
+
 // online_sessions koleksiyonunda video yüklendiğinde bildirim gönder
 db.collection("online_sessions")
   .onSnapshot((snapshot) => {
     snapshot.docChanges().forEach(async (change) => {
       if (change.type === "added" || change.type === "modified") {
         const newData = change.doc.data();
-        const oldData = change.type === "modified" && change.before ? change.before.data() : null;
+        const sessionId = change.doc.id;
 
         const videoUrl = newData.videoUrl || "";
         const videoSenderId = newData.videoSenderId || "";
+        const videoWatched = newData.videoWatched || newData.videoWatchedByReceiver || false;
 
-        if (videoUrl && videoSenderId) {
-          if (oldData && oldData.videoUrl === videoUrl) {
-            return;
-          }
-
-          const sessionId = change.doc.id;
-          await sendVideoNotification(sessionId, newData);
+        // 1. Rakip kullanıcıda video izlenmişse, video silindiyse veya video boşsa BİLDİRİM GELMESİN
+        if (!videoUrl || !videoSenderId || videoWatched === true) {
+          if (!videoUrl) sentVideoNotifications.delete(sessionId);
+          return;
         }
+
+        // 2. Bu seanstaki bu videoUrl için daha önce bildirim gönderildiyse TEKRAR GÖNDERME (Tek 1 defa gelsin)
+        if (sentVideoNotifications.get(sessionId) === videoUrl) {
+          return;
+        }
+
+        // Bildirimi kaydet ve SADECE 1 DEFA GÖNDER
+        sentVideoNotifications.set(sessionId, videoUrl);
+        await sendVideoNotification(sessionId, newData);
       }
     });
   }, (error) => {
