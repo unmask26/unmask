@@ -329,13 +329,32 @@ fun LoginScreen(
                             )
 
                             if (isRegisterTab) {
+                                val calendar = Calendar.getInstance()
+                                var initYear = calendar.get(Calendar.YEAR) - 20
+                                var initMonth = calendar.get(Calendar.MONTH)
+                                var initDay = calendar.get(Calendar.DAY_OF_MONTH)
+
+                                if (birthDateInput.isNotEmpty()) {
+                                    try {
+                                        val parts = birthDateInput.split("-")
+                                        if (parts.size == 3) {
+                                            initYear = parts[0].toInt()
+                                            initMonth = parts[1].toInt() - 1
+                                            initDay = parts[2].toInt()
+                                        }
+                                    } catch (_: Exception) {}
+                                }
+
                                 val datePickerDialog = DatePickerDialog(
                                     context,
                                     { _, year, month, dayOfMonth ->
                                         birthDateInput = String.format(Locale.US, "%04d-%02d-%02d", year, month + 1, dayOfMonth)
                                     },
-                                    2000, 0, 1
-                                )
+                                    initYear, initMonth, initDay
+                                ).apply {
+                                    datePicker.maxDate = System.currentTimeMillis()
+                                    datePicker.minDate = Calendar.getInstance().apply { add(Calendar.YEAR, -100) }.timeInMillis
+                                }
 
                                 OutlinedTextField(
                                     value = birthDateInput,

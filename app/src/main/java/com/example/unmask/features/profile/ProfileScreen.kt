@@ -89,6 +89,17 @@ fun ProfileScreen(
             Toast.makeText(context, "Lütfen doğum tarihinizi seçin", Toast.LENGTH_SHORT).show()
             return
         }
+        val isFutureDate = try {
+            val parts = birthDate.split("-")
+            val y = parts[0].toInt()
+            val currentYear = Calendar.getInstance().get(Calendar.YEAR)
+            y > currentYear
+        } catch (_: Exception) { false }
+
+        if (isFutureDate) {
+            Toast.makeText(context, "Gelecek bir tarih doğum tarihi olarak seçilemez", Toast.LENGTH_SHORT).show()
+            return
+        }
         coroutineScope.launch {
             isLoading = true
             try {
@@ -160,6 +171,21 @@ fun ProfileScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ProfileLabel(text = "DOĞUM TARİHİ")
                 val calendar = Calendar.getInstance()
+                var initYear = calendar.get(Calendar.YEAR) - 20
+                var initMonth = calendar.get(Calendar.MONTH)
+                var initDay = calendar.get(Calendar.DAY_OF_MONTH)
+
+                if (birthDate.isNotEmpty()) {
+                    try {
+                        val parts = birthDate.split("-")
+                        if (parts.size == 3) {
+                            initYear = parts[0].toInt()
+                            initMonth = parts[1].toInt() - 1
+                            initDay = parts[2].toInt()
+                        }
+                    } catch (_: Exception) {}
+                }
+
                 val datePickerDialog = DatePickerDialog(
                     context,
                     { _, year, month, dayOfMonth ->
@@ -167,10 +193,13 @@ fun ProfileScreen(
                         val dayStr = if (dayOfMonth < 10) "0$dayOfMonth" else "$dayOfMonth"
                         birthDate = "$year-$monthStr-$dayStr"
                     },
-                    calendar.get(Calendar.YEAR) - 20,
-                    calendar.get(Calendar.MONTH),
-                    calendar.get(Calendar.DAY_OF_MONTH)
-                )
+                    initYear,
+                    initMonth,
+                    initDay
+                ).apply {
+                    datePicker.maxDate = System.currentTimeMillis()
+                    datePicker.minDate = Calendar.getInstance().apply { add(Calendar.YEAR, -100) }.timeInMillis
+                }
                 Box(
                     modifier = Modifier.fillMaxWidth().height(56.dp)
                         .clip(RoundedCornerShape(16.dp)).background(Color.White)
