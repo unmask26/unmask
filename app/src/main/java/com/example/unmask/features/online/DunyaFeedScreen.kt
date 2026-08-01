@@ -451,75 +451,78 @@ fun ReelsPageItem(
             }
         }
 
-        // Reels Actions Column (Right Side overlay)
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .navigationBarsPadding()
-                .padding(end = 16.dp, bottom = 48.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
-            val isLiked = video.likedBy.contains(currentUserId)
-            
-            // Like Button
+        // Reels Actions Column (Right Side overlay - hidden on promo video)
+        val isPromoVideoActions = video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)
+        if (!isPromoVideoActions) {
             Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 16.dp, bottom = 48.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            try {
-                                repository.toggleLikePublicVideo(video.id)
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                val isLiked = video.likedBy.contains(currentUserId)
+                
+                // Like Button
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(
+                        onClick = {
+                            coroutineScope.launch {
+                                try {
+                                    repository.toggleLikePublicVideo(video.id)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             }
-                        }
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(22.dp))
-                ) {
-                    Icon(
-                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Beğen",
-                        tint = if (isLiked) Color.Red else Color.White,
-                        modifier = Modifier.size(24.dp)
+                        },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(22.dp))
+                    ) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Beğen",
+                            tint = if (isLiked) Color.Red else Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Text(
+                        text = video.likesCount.toString(),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
-                Text(
-                    text = video.likesCount.toString(),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
 
-            // Comment Button
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                IconButton(
-                    onClick = { showCommentsSheet = true },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(22.dp))
+                // Comment Button
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Comment,
-                        contentDescription = "Yorum Yap",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                    IconButton(
+                        onClick = { showCommentsSheet = true },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(22.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Comment,
+                            contentDescription = "Yorum Yap",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Text(
+                        text = video.comments.size.toString(),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
-                Text(
-                    text = video.comments.size.toString(),
-                    color = Color.White,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
 
