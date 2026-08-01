@@ -362,7 +362,10 @@ fun MainAppScreen(
                         userId = currentUser!!.uid
                     )
                     "dunya" -> DunyaFeedScreen(
-                        repository = repository
+                        repository = repository,
+                        onNavigateToBuyCard = {
+                            activeTab = "buyCard"
+                        }
                     )
                     "profil" -> ProfileScreen(
                         repository = repository,

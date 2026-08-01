@@ -47,7 +47,8 @@ import java.util.UUID
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DunyaFeedScreen(
-    repository: DataRepository
+    repository: DataRepository,
+    onNavigateToBuyCard: (() -> Unit)? = null
 ) {
     val rawPublicVideos by repository.getPublicVideos().collectAsState(initial = emptyList())
     val currentUser by repository.currentUser.collectAsState(initial = null)
@@ -137,7 +138,8 @@ fun DunyaFeedScreen(
                     currentTime = currentTime,
                     currentUserId = currentUserId,
                     currentUser = currentUser,
-                    repository = repository
+                    repository = repository,
+                    onNavigateToBuyCard = onNavigateToBuyCard
                 )
             }
         }
@@ -154,7 +156,8 @@ fun ReelsPageItem(
     currentTime: Long,
     currentUserId: String,
     currentUser: UserProfile?,
-    repository: DataRepository
+    repository: DataRepository,
+    onNavigateToBuyCard: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var videoView by remember { mutableStateOf<VideoView?>(null) }
@@ -386,6 +389,8 @@ fun ReelsPageItem(
                 }
             }
 
+            val isPromoVideo = video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)
+
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
@@ -395,79 +400,52 @@ fun ReelsPageItem(
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
                 )
-                Text(
-                    text = video.taskText,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    lineHeight = 20.sp
-                )
 
-                // Açıklama Kutusu (Description Box) & Özel SATIN AL Butonu
-                val isPromoVideo = video.id == "permanent_promo_fiziki_kart" || video.taskText.contains("fiziki kart", ignoreCase = true)
+                if (!isPromoVideo && video.taskText.isNotBlank()) {
+                    Text(
+                        text = video.taskText,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp
+                    )
+                }
+
+                // Sadece Bu Videoya Özel SATIN AL Butonu (Açıklama metinleri kaldırıldı, sadece buton kaldı)
                 if (isPromoVideo) {
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.85f)),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFACC15)),
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Button(
+                        onClick = {
+                            if (onNavigateToBuyCard != null) {
+                                onNavigateToBuyCard()
+                            } else {
+                                Toast.makeText(
+                                    context,
+                                    "🛒 Yönlendiriliyor...",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 6.dp)
+                            .height(46.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "Açıklama",
-                                    tint = Color(0xFFFACC15),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "fiziki kart satın almak için profil ayarlarından satın alabilirsiniz.",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
-
-                            // Sadece Bu Videoya Özel SATIN AL Butonu
-                            Button(
-                                onClick = {
-                                    Toast.makeText(
-                                        context,
-                                        "🛒 Fiziki Kart Satın Alma: Profil Ayarları sayfasından satın alma yapabilirsiniz.",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF10B981),
-                                    contentColor = Color.White
-                                ),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(40.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.ShoppingCart,
-                                    contentDescription = "Satın Al",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "🛒 SATIN AL",
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 13.sp
-                                )
-                            }
-                        }
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Satın Al",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "🛒 SATIN AL",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 14.sp
+                        )
                     }
                 }
             }
