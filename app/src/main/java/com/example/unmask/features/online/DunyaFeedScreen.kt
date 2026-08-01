@@ -140,31 +140,6 @@ fun DunyaFeedScreen(
                     repository = repository
                 )
             }
-
-            // Top Bar Overlay
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-                    .align(Alignment.TopCenter),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Public,
-                    contentDescription = "Dünya",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
-                Text(
-                    text = "DÜNYA",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.White,
-                    letterSpacing = 1.sp
-                )
-            }
         }
     }
 }
