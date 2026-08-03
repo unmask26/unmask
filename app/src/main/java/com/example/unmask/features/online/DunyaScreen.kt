@@ -1175,6 +1175,13 @@ fun OnlineGameplayView(
     var isPublishedToWorld by remember { mutableStateOf(false) }
     var isPublishingToWorld by remember { mutableStateOf(false) }
 
+    var lastOpponentVideoUrl by remember(session.id) { mutableStateOf("") }
+    LaunchedEffect(session.videoUrl, session.videoSenderId) {
+        if (session.videoUrl.isNotEmpty() && session.videoSenderId.isNotEmpty() && session.videoSenderId != userId) {
+            lastOpponentVideoUrl = session.videoUrl
+        }
+    }
+
     LaunchedEffect(recordedUri) {
         if (recordedUri == null) {
             isPublishedToWorld = false
@@ -2466,112 +2473,235 @@ fun OnlineGameplayView(
                         }
                     }
                 } else {
-                    // Sender waits for request approval
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.White)
-                            .statusBarsPadding()
-                            .padding(24.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = activeGame.name.uppercase(),
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = Color.Black
-                                    )
-                                    Text(
-                                        text = "Sıra: Rakipte",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black.copy(alpha = 0.4f)
-                                    )
-                                }
-                                IconButton(onClick = { showExitConfirmDialog = true }) {
-                                    Icon(imageVector = Icons.Default.Close, contentDescription = "Exit", tint = Color.Black)
-                                }
-                            }
+                    // Sender waits for opponent turn: Play opponent's previous video, then own video, then show waiting status
+                    var senderStage by remember(session.videoUrl) { mutableStateOf(if (lastOpponentVideoUrl.isNotEmpty()) 1 else 2) }
+                    var senderLocalVideoPath by remember(senderStage, lastOpponentVideoUrl, session.videoUrl) { mutableStateOf<String?>(null) }
+                    var isSenderCaching by remember(senderStage, lastOpponentVideoUrl, session.videoUrl) { mutableStateOf(false) }
 
-                            if (session.downloadRequestStatus == "requested") {
-                                Card(
-                                    shape = RoundedCornerShape(20.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .border(2.dp, Color(0xFF8B5CF6), RoundedCornerShape(20.dp))
-                                        .padding(16.dp)
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                            text = "İNDİRME İZNİ TALEBİ",
-                                            fontWeight = FontWeight.Black,
-                                            color = Color.Black,
-                                            fontSize = 15.sp
-                                        )
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            text = "Karşı kullanıcı videoyu indirmek istiyor",
-                                            fontSize = 12.sp,
-                                            color = Color.Black.copy(alpha = 0.5f),
-                                            fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Center
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                        ) {
-                                            Button(
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        repository.updateSession(session.copy(downloadRequestStatus = "rejected"))
-                                                    }
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("REDDET")
-                                            }
-                                            Button(
-                                                onClick = {
-                                                    coroutineScope.launch {
-                                                        repository.updateSession(session.copy(downloadRequestStatus = "approved"))
-                                                    }
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                                                modifier = Modifier.weight(1f)
-                                            ) {
-                                                Text("İZİN VER")
+                    val targetUrl = remember(senderStage, lastOpponentVideoUrl, session.videoUrl) {
+                        if (senderStage == 1 && lastOpponentVideoUrl.isNotEmpty()) lastOpponentVideoUrl
+                        else if (senderStage == 2 && session.videoUrl.isNotEmpty()) session.videoUrl
+                        else ""
+                    }
+
+                    // Cache video for smooth local playback
+                    LaunchedEffect(targetUrl) {
+                        if (targetUrl.isNotEmpty()) {
+                            isSenderCaching = true
+                            senderLocalVideoPath = null
+                            try {
+                                val cachedFile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                    val urlHash = targetUrl.hashCode().let { if (it < 0) "n${-it}" else "$it" }
+                                    val fileName = "online_sender_play_${urlHash}.mp4"
+                                    val file = java.io.File(context.cacheDir, fileName)
+                                    if (!file.exists() || file.length() == 0L) {
+                                        val url = java.net.URL(targetUrl)
+                                        url.openStream().use { input ->
+                                            file.outputStream().use { output ->
+                                                input.copyTo(output)
                                             }
                                         }
                                     }
+                                    file
                                 }
-                            } else {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    CircularProgressIndicator(color = Color.Black)
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "Video rakibe ulaştı. Aksiyon bekleniyor...",
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black.copy(alpha = 0.4f),
-                                        textAlign = TextAlign.Center
+                                senderLocalVideoPath = cachedFile.absolutePath
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                senderLocalVideoPath = targetUrl
+                            } finally {
+                                isSenderCaching = false
+                            }
+                        } else {
+                            senderLocalVideoPath = null
+                            isSenderCaching = false
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(if (senderStage in 1..2 && targetUrl.isNotEmpty()) Color.Black else Color.White)
+                    ) {
+                        if (senderStage in 1..2 && targetUrl.isNotEmpty()) {
+                            if (isSenderCaching) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        CircularProgressIndicator(color = Color.White)
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Text("Video hazırlanıyor...", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else if (senderLocalVideoPath != null) {
+                                androidx.compose.runtime.key(senderLocalVideoPath) {
+                                    AndroidView(
+                                        factory = { ctx ->
+                                            VideoView(ctx).apply {
+                                                setVideoPath(senderLocalVideoPath!!)
+                                                setOnPreparedListener { start() }
+                                                setOnCompletionListener {
+                                                    if (senderStage == 1) {
+                                                        senderStage = 2 // Move to own video
+                                                    } else {
+                                                        senderStage = 3 // Finished playlist -> show waiting UI
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxSize()
                                     )
                                 }
-                            }
 
-                            // Spacer to align layout nicely
-                            Spacer(modifier = Modifier.height(1.dp))
+                                // Top Overlay Header Badge
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .statusBarsPadding()
+                                        .padding(16.dp)
+                                        .align(Alignment.TopCenter),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Card(
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.65f)),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .background(if (senderStage == 1) Color(0xFF3B82F6) else Color(0xFF10B981), CircleShape)
+                                            )
+                                            Text(
+                                                text = if (senderStage == 1) "RAKİBİN DAHA ÖNCE ÇEKTİĞİ VİDEO ▶" else "SENİN ÇEKTİĞİN VİDEO ▶",
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = { showExitConfirmDialog = true },
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                    ) {
+                                        Icon(imageVector = Icons.Default.Close, contentDescription = "Exit", tint = Color.White)
+                                    }
+                                }
+                            }
+                        } else {
+                            // Stage 3 or no video: Standard waiting view
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                                    .padding(24.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = activeGame.name.uppercase(),
+                                                fontSize = 24.sp,
+                                                fontWeight = FontWeight.Black,
+                                                color = Color.Black
+                                            )
+                                            Text(
+                                                text = "Sıra: Rakipte",
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black.copy(alpha = 0.4f)
+                                            )
+                                        }
+                                        IconButton(onClick = { showExitConfirmDialog = true }) {
+                                            Icon(imageVector = Icons.Default.Close, contentDescription = "Exit", tint = Color.Black)
+                                        }
+                                    }
+
+                                    if (session.downloadRequestStatus == "requested") {
+                                        Card(
+                                            shape = RoundedCornerShape(20.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .border(2.dp, Color(0xFF8B5CF6), RoundedCornerShape(20.dp))
+                                                .padding(16.dp)
+                                        ) {
+                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text(
+                                                    text = "İNDİRME İZNİ TALEBİ",
+                                                    fontWeight = FontWeight.Black,
+                                                    color = Color.Black,
+                                                    fontSize = 15.sp
+                                                )
+                                                Spacer(modifier = Modifier.height(8.dp))
+                                                Text(
+                                                    text = "Karşı kullanıcı videoyu indirmek istiyor",
+                                                    fontSize = 12.sp,
+                                                    color = Color.Black.copy(alpha = 0.5f),
+                                                    fontWeight = FontWeight.Bold,
+                                                    textAlign = TextAlign.Center
+                                                )
+                                                Spacer(modifier = Modifier.height(16.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                                ) {
+                                                    Button(
+                                                        onClick = {
+                                                            coroutineScope.launch {
+                                                                repository.updateSession(session.copy(downloadRequestStatus = "rejected"))
+                                                            }
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Text("REDDET")
+                                                    }
+                                                    Button(
+                                                        onClick = {
+                                                            coroutineScope.launch {
+                                                                repository.updateSession(session.copy(downloadRequestStatus = "approved"))
+                                                            }
+                                                        },
+                                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                                                        modifier = Modifier.weight(1f)
+                                                    ) {
+                                                        Text("İZİN VER")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            CircularProgressIndicator(color = Color.Black)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = "Video rakibe ulaştı. Aksiyon bekleniyor...",
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black.copy(alpha = 0.4f),
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(1.dp))
+                                }
+                            }
                         }
                     }
                 }
