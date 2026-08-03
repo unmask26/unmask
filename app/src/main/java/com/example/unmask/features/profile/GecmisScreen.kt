@@ -616,10 +616,14 @@ fun GecmisScreen(
                                 onlineOpponents.forEach { opp ->
                                     val presence = allPresences.find { it.userId == opp.opponentId }
                                     val isOnline = presence != null && (System.currentTimeMillis() - presence.lastActive < 30_000)
+                                    val isCurrentOpponent = activeSession != null && activeSession?.status != "finished" &&
+                                            (activeSession?.user1Id == opp.opponentId || activeSession?.user2Id == opp.opponentId)
 
-                                    val statusText = remember(presence, isOnline, opp.lastPlayedTimestamp) {
-                                        if (isOnline) {
-                                            val st = presence.status
+                                    val statusText = remember(presence, isOnline, opp.lastPlayedTimestamp, isCurrentOpponent) {
+                                        if (isCurrentOpponent) {
+                                            "Şu an aktif oyununuz devam ediyor 🎮"
+                                        } else if (isOnline) {
+                                            val st = presence!!.status
                                             when {
                                                 st.startsWith("searching:") -> {
                                                     val catKey = st.substringAfter("searching:")
@@ -638,7 +642,7 @@ fun GecmisScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(14.dp))
-                                            .background(if (isOnline) Color(0xFFD1FAE5) else Color(0xFFEFF6FF))
+                                            .background(if (isCurrentOpponent) Color(0xFFD1FAE5) else if (isOnline) Color(0xFFECFDF5) else Color(0xFFEFF6FF))
                                             .clickable { selectedOpponentForRequest = opp }
                                             .padding(14.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -652,7 +656,7 @@ fun GecmisScreen(
                                                 modifier = Modifier
                                                     .size(10.dp)
                                                     .background(
-                                                        if (isOnline) Color(0xFF10B981) else Color(0xFFEF4444),
+                                                        if (isCurrentOpponent || isOnline) Color(0xFF10B981) else Color(0xFFEF4444),
                                                         CircleShape
                                                     )
                                             )
@@ -667,7 +671,7 @@ fun GecmisScreen(
                                                         fontSize = 15.sp,
                                                         color = Color.Black
                                                     )
-                                                    if (isOnline) {
+                                                    if (isOnline && !isCurrentOpponent) {
                                                         Box(
                                                             modifier = Modifier
                                                                 .background(Color(0xFF10B981).copy(alpha = 0.2f), RoundedCornerShape(6.dp))
@@ -681,25 +685,27 @@ fun GecmisScreen(
                                                     text = statusText,
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.Bold,
-                                                    color = if (isOnline) Color(0xFF047857) else Color.Black.copy(alpha = 0.4f)
+                                                    color = if (isCurrentOpponent || isOnline) Color(0xFF047857) else Color.Black.copy(alpha = 0.4f)
                                                 )
                                             }
                                         }
 
                                         Button(
                                             onClick = {
-                                                if (isUserInGame) {
+                                                if (isCurrentOpponent) {
+                                                    Toast.makeText(context, "🎮 Bu kişiyle aktif bir oyununuz devam ediyor!", Toast.LENGTH_SHORT).show()
+                                                } else if (isUserInGame) {
                                                     Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
                                                 } else {
                                                     selectedOpponentForRequest = opp
                                                 }
                                             },
-                                            colors = ButtonDefaults.buttonColors(containerColor = if (isUserInGame) Color.Gray else Color(0xFF3B82F6)),
+                                            colors = ButtonDefaults.buttonColors(containerColor = if (isCurrentOpponent) Color(0xFF10B981) else Color(0xFF3B82F6)),
                                             shape = RoundedCornerShape(12.dp),
                                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                                             modifier = Modifier.height(34.dp)
                                         ) {
-                                            Text(if (isUserInGame) "OYUNDASINIZ ⚠️" else "DAVET ET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text(if (isCurrentOpponent) "OYUNDASINIZ 🎮" else "DAVET ET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
@@ -751,12 +757,34 @@ fun GecmisScreen(
                                 followedUsers.forEach { userName ->
                                     val presence = allPresences.find { it.userName.equals(userName, ignoreCase = true) }
                                     val isFollowedOnline = presence != null && (System.currentTimeMillis() - presence.lastActive < 30_000)
+                                    val isCurrentFollowedOpponent = activeSession != null && activeSession?.status != "finished" &&
+                                            ((presence != null && (activeSession?.user1Id == presence.userId || activeSession?.user2Id == presence.userId)) ||
+                                            activeSession?.user1Name.equals(userName, ignoreCase = true) || activeSession?.user2Name.equals(userName, ignoreCase = true))
+
+                                    val followedStatusText = remember(presence, isFollowedOnline, isCurrentFollowedOpponent) {
+                                        if (isCurrentFollowedOpponent) {
+                                            "Şu an aktif oyununuz devam ediyor 🎮"
+                                        } else if (isFollowedOnline) {
+                                            val st = presence!!.status
+                                            when {
+                                                st.startsWith("searching:") -> {
+                                                    val catKey = st.substringAfter("searching:")
+                                                    val catName = categories.find { it.key == catKey }?.name ?: catKey.uppercase()
+                                                    "$catName Lobisinde"
+                                                }
+                                                st == "playing" -> "Oyunda"
+                                                else -> "Çevrimiçi"
+                                            }
+                                        } else {
+                                            formatLastSeenTime(presence?.lastActive ?: 0L)
+                                        }
+                                    }
 
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clip(RoundedCornerShape(14.dp))
-                                            .background(if (isFollowedOnline) Color(0xFFD1FAE5) else Color(0xFFF3E8FF))
+                                            .background(if (isCurrentFollowedOpponent) Color(0xFFD1FAE5) else if (isFollowedOnline) Color(0xFFECFDF5) else Color(0xFFF3E8FF))
                                             .padding(14.dp),
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                         verticalAlignment = Alignment.CenterVertically
@@ -768,53 +796,63 @@ fun GecmisScreen(
                                             Box(
                                                 modifier = Modifier
                                                     .size(34.dp)
-                                                    .background(if (isFollowedOnline) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFF8B5CF6).copy(alpha = 0.2f), CircleShape),
+                                                    .background(if (isCurrentFollowedOpponent || isFollowedOnline) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFF8B5CF6).copy(alpha = 0.2f), CircleShape),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
                                                     text = userName.take(1).uppercase(),
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 15.sp,
-                                                    color = if (isFollowedOnline) Color(0xFF047857) else Color(0xFF8B5CF6)
+                                                    color = if (isCurrentFollowedOpponent || isFollowedOnline) Color(0xFF047857) else Color(0xFF8B5CF6)
                                                 )
                                             }
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                            ) {
-                                                Text(
-                                                    text = "@$userName",
-                                                    fontWeight = FontWeight.Black,
-                                                    fontSize = 15.sp,
-                                                    color = Color.Black
-                                                )
-                                                if (isFollowedOnline) {
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .background(Color(0xFF10B981).copy(alpha = 0.25f), RoundedCornerShape(6.dp))
-                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                    ) {
-                                                        Text("ÇEVRİMİÇİ 🟢", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF047857))
+                                            Column {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        text = "@$userName",
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 15.sp,
+                                                        color = Color.Black
+                                                    )
+                                                    if (isFollowedOnline && !isCurrentFollowedOpponent) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .background(Color(0xFF10B981).copy(alpha = 0.25f), RoundedCornerShape(6.dp))
+                                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                        ) {
+                                                            Text("ÇEVRİMİÇİ 🟢", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF047857))
+                                                        }
                                                     }
                                                 }
+                                                Text(
+                                                    text = followedStatusText,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isCurrentFollowedOpponent || isFollowedOnline) Color(0xFF047857) else Color.Black.copy(alpha = 0.4f)
+                                                )
                                             }
                                         }
 
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                             Button(
                                                 onClick = {
-                                                    if (isUserInGame) {
+                                                    if (isCurrentFollowedOpponent) {
+                                                        Toast.makeText(context, "🎮 Bu kişiyle aktif bir oyununuz devam ediyor!", Toast.LENGTH_SHORT).show()
+                                                    } else if (isUserInGame) {
                                                         Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
                                                     } else {
                                                         selectedFollowedUserForRequest = userName
                                                     }
                                                 },
-                                                colors = ButtonDefaults.buttonColors(containerColor = if (isUserInGame) Color.Gray else Color(0xFF8B5CF6)),
+                                                colors = ButtonDefaults.buttonColors(containerColor = if (isCurrentFollowedOpponent) Color(0xFF10B981) else Color(0xFF8B5CF6)),
                                                 shape = RoundedCornerShape(12.dp),
                                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
                                                 modifier = Modifier.height(34.dp)
                                             ) {
-                                                Text(if (isUserInGame) "OYUNDASINIZ ⚠️" else "DAVET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Text(if (isCurrentFollowedOpponent) "OYUNDASINIZ 🎮" else "DAVET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                             }
 
                                             IconButton(
