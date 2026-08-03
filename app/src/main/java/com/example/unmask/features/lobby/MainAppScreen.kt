@@ -387,6 +387,9 @@ fun MainAppScreen(
                     )
                 }
 
+                // 🚀 UYGULAMA İÇİ OTOMATİK GÜNCELLEME DENETLEYİCİSİ
+                com.example.unmask.core.AutoUpdateCheckerOverlay()
+
                 // 🔔 HANGİ SAYFADA OLURSA OLSUN TOP-LEVEL (AlertDialog) YENİ OYUN İSTEĞİ BİLDİRİMİ
                 if (activeToastRequest != null) {
                     val req = activeToastRequest!!
