@@ -690,22 +690,22 @@ fun GecmisScreen(
                                             }
                                         }
 
-                                        Button(
-                                            onClick = {
-                                                if (isCurrentOpponent) {
-                                                    Toast.makeText(context, "🎮 Bu kişiyle aktif bir oyununuz devam ediyor!", Toast.LENGTH_SHORT).show()
-                                                } else if (isUserInGame) {
-                                                    Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
-                                                } else {
-                                                    selectedOpponentForRequest = opp
-                                                }
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = if (isCurrentOpponent) Color(0xFF10B981) else Color(0xFF3B82F6)),
-                                            shape = RoundedCornerShape(12.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier.height(34.dp)
-                                        ) {
-                                            Text(if (isCurrentOpponent) "OYUNDASINIZ 🎮" else "DAVET ET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        if (!isCurrentOpponent) {
+                                            Button(
+                                                onClick = {
+                                                    if (isUserInGame) {
+                                                        Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
+                                                    } else {
+                                                        selectedOpponentForRequest = opp
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
+                                                shape = RoundedCornerShape(12.dp),
+                                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                                modifier = Modifier.height(34.dp)
+                                            ) {
+                                                Text("DAVET ET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            }
                                         }
                                     }
                                 }
@@ -837,22 +837,22 @@ fun GecmisScreen(
                                         }
 
                                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Button(
-                                                onClick = {
-                                                    if (isCurrentFollowedOpponent) {
-                                                        Toast.makeText(context, "🎮 Bu kişiyle aktif bir oyununuz devam ediyor!", Toast.LENGTH_SHORT).show()
-                                                    } else if (isUserInGame) {
-                                                        Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
-                                                    } else {
-                                                        selectedFollowedUserForRequest = userName
-                                                    }
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = if (isCurrentFollowedOpponent) Color(0xFF10B981) else Color(0xFF8B5CF6)),
-                                                shape = RoundedCornerShape(12.dp),
-                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                                modifier = Modifier.height(34.dp)
-                                            ) {
-                                                Text(if (isCurrentFollowedOpponent) "OYUNDASINIZ 🎮" else "DAVET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            if (!isCurrentFollowedOpponent) {
+                                                Button(
+                                                    onClick = {
+                                                        if (isUserInGame) {
+                                                            Toast.makeText(context, "⚠️ Halen aktif bir oyundasınız. Aynı anda sadece 1 kişi ile oyun oynayabilirsiniz!", Toast.LENGTH_LONG).show()
+                                                        } else {
+                                                            selectedFollowedUserForRequest = userName
+                                                        }
+                                                    },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
+                                                    shape = RoundedCornerShape(12.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                    modifier = Modifier.height(34.dp)
+                                                ) {
+                                                    Text("DAVET 🎮", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
                                             }
 
                                             IconButton(
