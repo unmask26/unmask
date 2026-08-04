@@ -156,6 +156,7 @@ object AppUpdateManager {
             val intent = Intent(Intent.ACTION_VIEW).apply {
                 setDataAndType(apkUri, "application/vnd.android.package-archive")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
@@ -278,6 +279,10 @@ fun AutoUpdateCheckerOverlay() {
                                     downloadUrl = releaseInfo!!.downloadUrl,
                                     onProgress = { prog ->
                                         downloadProgress = prog
+                                        if (prog >= 100) {
+                                            showDialog = false
+                                            isDownloading = false
+                                        }
                                     }
                                 )
                             }
