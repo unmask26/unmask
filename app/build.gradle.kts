@@ -13,8 +13,8 @@ android {
         applicationId = "unmask.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 247
-        versionName = "2.4.7"
+        versionCode = 248
+        versionName = "2.4.8"
     }
 
     signingConfigs {
@@ -32,6 +32,16 @@ android {
             isCrunchPngs = false
             signingConfig = signingConfigs.getByName("release")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    // Produce separate, smaller APKs per CPU architecture
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a") // ARM64 (modern) + ARM32 (older)
+            isUniversalApk = false              // Don't emit a fat universal APK
         }
     }
     compileOptions {

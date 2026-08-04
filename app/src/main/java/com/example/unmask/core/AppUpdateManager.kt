@@ -56,15 +56,35 @@ object AppUpdateManager {
                 val tagName = jsonObj.optString("tag_name", "").removePrefix("v").trim()
                 val body = jsonObj.optString("body", "")
 
+                // Detect the device's primary ABI to pick the matching split APK
+                val deviceAbi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
+                val abiLabel = when {
+                    deviceAbi.contains("arm64")  -> "arm64v8a"
+                    deviceAbi.contains("armeabi") -> "armeabiv7a"
+                    else -> "arm64v8a" // fallback
+                }
+
                 var apkUrl = ""
                 val assets = jsonObj.optJSONArray("assets")
                 if (assets != null) {
+                    // First try: find ABI-specific APK (e.g. unmask-v2.4.8-arm64v8a.apk)
                     for (i in 0 until assets.length()) {
                         val asset = assets.getJSONObject(i)
                         val name = asset.optString("name", "")
-                        if (name.endsWith(".apk", ignoreCase = true)) {
+                        if (name.endsWith(".apk", ignoreCase = true) && name.contains(abiLabel, ignoreCase = true)) {
                             apkUrl = asset.optString("browser_download_url", "")
                             break
+                        }
+                    }
+                    // Fallback: grab any .apk (universal or first)
+                    if (apkUrl.isEmpty()) {
+                        for (i in 0 until assets.length()) {
+                            val asset = assets.getJSONObject(i)
+                            val name = asset.optString("name", "")
+                            if (name.endsWith(".apk", ignoreCase = true)) {
+                                apkUrl = asset.optString("browser_download_url", "")
+                                break
+                            }
                         }
                     }
                 }
