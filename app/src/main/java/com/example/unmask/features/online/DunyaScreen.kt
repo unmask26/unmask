@@ -429,37 +429,26 @@ fun DunyaScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                                         ) {
+                                            val userAge = targetUser.age
+                                            val ageColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(userAge)
                                             Box(
                                                 contentAlignment = Alignment.Center,
                                                 modifier = Modifier
                                                     .size(36.dp)
-                                                    .background(Color(0xFF8B5CF6).copy(alpha = 0.1f), RoundedCornerShape(50))
+                                                    .background(ageColor.copy(alpha = 0.2f), RoundedCornerShape(50))
                                             ) {
                                                 Text(
                                                     text = targetUser.userName.take(1).uppercase(),
-                                                    color = Color(0xFF8B5CF6),
+                                                    color = ageColor,
                                                     fontWeight = FontWeight.Black
                                                 )
                                             }
                                             Column {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                    val userAge = targetUser.age
-                                                    val checkmarkColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(userAge)
-                                                    Text(
-                                                        text = "✔",
-                                                        fontWeight = FontWeight.Black,
-                                                        fontSize = 14.sp,
-                                                        color = checkmarkColor
-                                                    )
-                                                    Text(
-                                                        text = targetUser.userName,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = Color.Black
-                                                    )
-                                                }
+                                                Text(
+                                                    text = targetUser.userName,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Color.Black
+                                                )
                                                 Text(
                                                     text = "Lobide • Hazır",
                                                     fontSize = 11.sp,

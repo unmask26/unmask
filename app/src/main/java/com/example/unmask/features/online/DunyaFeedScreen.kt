@@ -335,37 +335,26 @@ fun ReelsPageItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val ageColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(22)
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(18.dp)),
+                        .background(ageColor.copy(alpha = 0.3f), RoundedCornerShape(18.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = video.userName.take(1).uppercase(),
-                        color = Color.White,
+                        color = ageColor,
                         fontWeight = FontWeight.Black,
                         fontSize = 18.sp
                     )
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    val checkmarkColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(22)
-                    Text(
-                        text = "✔",
-                        color = checkmarkColor,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "@${video.userName}",
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 16.sp
-                    )
-                }
+                Text(
+                    text = "@${video.userName}",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 16.sp
+                )
 
                 val myNickname = currentUser?.nickname?.takeIf { it.isNotBlank() } ?: "Oyuncu"
                 val isMyOwnVideo = video.userId == currentUserId || 

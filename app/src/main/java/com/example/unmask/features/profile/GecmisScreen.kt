@@ -656,27 +656,26 @@ fun GecmisScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
+                                            val oppAge = presence?.age ?: opp.opponentAge
+                                            val ageColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(oppAge)
                                             Box(
                                                 modifier = Modifier
-                                                    .size(10.dp)
-                                                    .background(
-                                                        if (isCurrentOpponent || isOnline) Color(0xFF10B981) else Color(0xFFEF4444),
-                                                        CircleShape
-                                                    )
-                                            )
+                                                    .size(34.dp)
+                                                    .background(ageColor.copy(alpha = 0.2f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = opp.opponentName.take(1).uppercase(),
+                                                    fontWeight = FontWeight.Black,
+                                                    fontSize = 15.sp,
+                                                    color = ageColor
+                                                )
+                                            }
                                             Column {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
-                                                    val oppAge = presence?.age ?: opp.opponentAge
-                                                    val checkmarkColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(oppAge)
-                                                    Text(
-                                                        text = "✔",
-                                                        fontWeight = FontWeight.Black,
-                                                        fontSize = 15.sp,
-                                                        color = checkmarkColor
-                                                    )
                                                     Text(
                                                         text = opp.opponentName,
                                                         fontWeight = FontWeight.Black,
@@ -809,17 +808,19 @@ fun GecmisScreen(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                                         ) {
+                                            val followedAge = presence?.age ?: 22
+                                            val ageColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(followedAge)
                                             Box(
                                                 modifier = Modifier
                                                     .size(34.dp)
-                                                    .background(if (isCurrentFollowedOpponent || isFollowedOnline) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFF8B5CF6).copy(alpha = 0.2f), CircleShape),
+                                                    .background(ageColor.copy(alpha = 0.2f), CircleShape),
                                                 contentAlignment = Alignment.Center
                                             ) {
                                                 Text(
                                                     text = userName.take(1).uppercase(),
                                                     fontWeight = FontWeight.Black,
                                                     fontSize = 15.sp,
-                                                    color = if (isCurrentFollowedOpponent || isFollowedOnline) Color(0xFF047857) else Color(0xFF8B5CF6)
+                                                    color = ageColor
                                                 )
                                             }
                                             Column {
@@ -827,14 +828,6 @@ fun GecmisScreen(
                                                     verticalAlignment = Alignment.CenterVertically,
                                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
-                                                    val followedAge = presence?.age ?: 22
-                                                    val checkmarkColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(followedAge)
-                                                    Text(
-                                                        text = "✔",
-                                                        fontWeight = FontWeight.Black,
-                                                        fontSize = 15.sp,
-                                                        color = checkmarkColor
-                                                    )
                                                     Text(
                                                         text = "@$userName",
                                                         fontWeight = FontWeight.Black,
