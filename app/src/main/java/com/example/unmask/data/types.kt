@@ -108,7 +108,9 @@ data class OnlineUserPresence(
     val lastActive: Long = 0,
     val banUntil: Long = 0,
     val score: Int = 100,
-    val gender: String = "Erkek"
+    val gender: String = "Erkek",
+    val age: Int = 22,
+    val birthDate: String = ""
 )
 
 @Serializable
@@ -192,6 +194,7 @@ data class OnlineOpponentHistory(
     val opponentId: String = "",
     val opponentName: String = "",
     val opponentGender: String = "Erkek",
+    val opponentAge: Int = 22,
     val lastPlayedTimestamp: Long = 0L,
     val lastCategory: String = ""
 )

@@ -442,11 +442,24 @@ fun DunyaScreen(
                                                 )
                                             }
                                             Column {
-                                                Text(
-                                                    text = targetUser.userName,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = Color.Black
-                                                )
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    val userAge = targetUser.age
+                                                    val checkmarkColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(userAge)
+                                                    Text(
+                                                        text = "✔",
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 14.sp,
+                                                        color = checkmarkColor
+                                                    )
+                                                    Text(
+                                                        text = targetUser.userName,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color.Black
+                                                    )
+                                                }
                                                 Text(
                                                     text = "Lobide • Hazır",
                                                     fontSize = 11.sp,

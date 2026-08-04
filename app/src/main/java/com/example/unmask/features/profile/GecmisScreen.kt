@@ -667,8 +667,16 @@ fun GecmisScreen(
                                             Column {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
+                                                    val oppAge = presence?.age ?: opp.opponentAge
+                                                    val checkmarkColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(oppAge)
+                                                    Text(
+                                                        text = "✔",
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 15.sp,
+                                                        color = checkmarkColor
+                                                    )
                                                     Text(
                                                         text = opp.opponentName,
                                                         fontWeight = FontWeight.Black,
@@ -817,8 +825,16 @@ fun GecmisScreen(
                                             Column {
                                                 Row(
                                                     verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
+                                                    val followedAge = presence?.age ?: 22
+                                                    val checkmarkColor = com.example.unmask.data.AgeUtils.getCheckmarkColor(followedAge)
+                                                    Text(
+                                                        text = "✔",
+                                                        fontWeight = FontWeight.Black,
+                                                        fontSize = 15.sp,
+                                                        color = checkmarkColor
+                                                    )
                                                     Text(
                                                         text = "@$userName",
                                                         fontWeight = FontWeight.Black,

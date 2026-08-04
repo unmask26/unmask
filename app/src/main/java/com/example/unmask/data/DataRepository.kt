@@ -794,14 +794,18 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
     override suspend fun updatePresence(userId: String, userName: String, status: String, banUntil: Long, gender: String) {
         if (userId == "offline_demo_user") return
         try {
+            val userProfile = _currentUser.value
+            val userAge = AgeUtils.parseAge(userProfile?.birthDate)
             val presence = OnlineUserPresence(
                 userId = userId,
                 userName = userName,
                 status = status,
                 lastActive = System.currentTimeMillis(),
                 banUntil = banUntil,
-                score = _currentUser.value?.score ?: 100,
-                gender = gender
+                score = userProfile?.score ?: 100,
+                gender = gender,
+                age = userAge,
+                birthDate = userProfile?.birthDate ?: ""
             )
             firestore.collection("online_users").document(userId).set(presence).await()
         } catch (e: Exception) {
