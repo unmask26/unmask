@@ -13,8 +13,8 @@ android {
         applicationId = "unmask.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 245
-        versionName = "2.4.5"
+        versionCode = 246
+        versionName = "2.4.6"
     }
 
     signingConfigs {
