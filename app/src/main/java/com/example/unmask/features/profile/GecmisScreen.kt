@@ -627,8 +627,12 @@ fun GecmisScreen(
                                             when {
                                                 st.startsWith("searching:") -> {
                                                     val catKey = st.substringAfter("searching:")
-                                                    val catName = categories.find { it.key == catKey }?.name ?: catKey.uppercase()
-                                                    "$catName Lobisinde"
+                                                    if (catKey == "adult") {
+                                                        "Çevrimiçi"
+                                                    } else {
+                                                        val catName = categories.find { it.key == catKey }?.name ?: catKey.uppercase()
+                                                        "$catName Lobisinde"
+                                                    }
                                                 }
                                                 st == "playing" -> "Oyunda"
                                                 else -> "Çevrimiçi"
@@ -769,8 +773,12 @@ fun GecmisScreen(
                                             when {
                                                 st.startsWith("searching:") -> {
                                                     val catKey = st.substringAfter("searching:")
-                                                    val catName = categories.find { it.key == catKey }?.name ?: catKey.uppercase()
-                                                    "$catName Lobisinde"
+                                                    if (catKey == "adult") {
+                                                        "Çevrimiçi"
+                                                    } else {
+                                                        val catName = categories.find { it.key == catKey }?.name ?: catKey.uppercase()
+                                                        "$catName Lobisinde"
+                                                    }
                                                 }
                                                 st == "playing" -> "Oyunda"
                                                 else -> "Çevrimiçi"
