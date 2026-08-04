@@ -39,7 +39,14 @@ object AppUpdateManager {
 
     private const val GITHUB_RELEASE_API = "https://api.github.com/repos/unmask26/unmask/releases/latest"
 
+    // Session flags to prevent duplicate checks and duplicate dialogs
+    var hasCheckedThisSession: Boolean = false
+    var isUpdateFlowActive: Boolean = false
+
     suspend fun checkForUpdate(context: Context): AppReleaseInfo? = withContext(Dispatchers.IO) {
+        if (hasCheckedThisSession && !isUpdateFlowActive) return@withContext null
+        hasCheckedThisSession = true
+
         try {
             val url = URL(GITHUB_RELEASE_API)
             val connection = url.openConnection() as HttpURLConnection
@@ -59,15 +66,15 @@ object AppUpdateManager {
                 // Detect the device's primary ABI to pick the matching split APK
                 val deviceAbi = Build.SUPPORTED_ABIS.firstOrNull() ?: "arm64-v8a"
                 val abiLabel = when {
-                    deviceAbi.contains("arm64")  -> "arm64v8a"
+                    deviceAbi.contains("arm64") -> "arm64v8a"
                     deviceAbi.contains("armeabi") -> "armeabiv7a"
-                    else -> "arm64v8a" // fallback
+                    else -> "arm64v8a"
                 }
 
                 var apkUrl = ""
                 val assets = jsonObj.optJSONArray("assets")
                 if (assets != null) {
-                    // First try: find ABI-specific APK (e.g. unmask-v2.4.8-arm64v8a.apk)
+                    // First try: find ABI-specific APK
                     for (i in 0 until assets.length()) {
                         val asset = assets.getJSONObject(i)
                         val name = asset.optString("name", "")
@@ -76,7 +83,7 @@ object AppUpdateManager {
                             break
                         }
                     }
-                    // Fallback: grab any .apk (universal or first)
+                    // Fallback: grab any .apk
                     if (apkUrl.isEmpty()) {
                         for (i in 0 until assets.length()) {
                             val asset = assets.getJSONObject(i)
@@ -216,19 +223,15 @@ object AppUpdateManager {
 // STATES
 // ------------------------------------------------------------------
 private enum class UpdateStep {
-    IDLE,           // Checking...
-    NEEDS_UPDATE,   // Newer version found, waiting for user
-    NEEDS_PERM,     // No install permission; user sent to Settings
-    DOWNLOADING,    // APK being fetched
-    READY_TO_INSTALL // APK downloaded; waiting to launch installer
+    IDLE,
+    NEEDS_UPDATE,
+    NEEDS_PERM,
+    DOWNLOADING
 }
 
 /**
  * In-App Auto Update Dialog composable.
- * Properly handles the Unknown Sources permission round-trip:
- *   1. If no install permission → show message, open Settings
- *   2. User grants permission, returns → dialog still open → install proceeds
- *   3. APK already cached → skip re-download, go straight to install
+ * Guarantees single-shot execution per app session, handling Unknown Sources permission seamlessly.
  */
 @Composable
 fun AutoUpdateCheckerOverlay() {
@@ -239,30 +242,31 @@ fun AutoUpdateCheckerOverlay() {
     var step by remember { mutableStateOf(UpdateStep.IDLE) }
     var downloadProgress by remember { mutableStateOf(0) }
     var showDialog by remember { mutableStateOf(false) }
-    var cachedApkFile by remember { mutableStateOf<File?>(null) }
 
-    // Check for update once on launch
+    // Check for update ONCE per launch session
     LaunchedEffect(Unit) {
-        val info = AppUpdateManager.checkForUpdate(context)
-        if (info != null) {
-            releaseInfo = info
-            step = UpdateStep.NEEDS_UPDATE
-            showDialog = true
+        if (!AppUpdateManager.isUpdateFlowActive) {
+            val info = AppUpdateManager.checkForUpdate(context)
+            if (info != null) {
+                releaseInfo = info
+                step = UpdateStep.NEEDS_UPDATE
+                showDialog = true
+                AppUpdateManager.isUpdateFlowActive = true
+            }
         }
     }
 
-    // Re-check install permission when dialog is visible and we're in NEEDS_PERM state.
-    // This handles the case where user returns from Settings after granting permission.
+    // Handle return from Settings if user was asking for install permission
     LaunchedEffect(showDialog, step) {
         if (showDialog && step == UpdateStep.NEEDS_PERM) {
             if (AppUpdateManager.canInstall(context)) {
-                // Permission granted – either install cached APK or start download
-                val cached = cachedApkFile ?: AppUpdateManager.getCachedApk(context)
+                // Permission granted! Start downloading or installing cached APK
+                val cached = AppUpdateManager.getCachedApk(context)
                 if (cached != null) {
-                    cachedApkFile = cached
-                    step = UpdateStep.READY_TO_INSTALL
+                    showDialog = false
+                    AppUpdateManager.isUpdateFlowActive = false
+                    AppUpdateManager.installApk(context, cached)
                 } else {
-                    // Need to download
                     step = UpdateStep.DOWNLOADING
                     coroutineScope.launch {
                         val file = AppUpdateManager.downloadApk(
@@ -270,25 +274,13 @@ fun AutoUpdateCheckerOverlay() {
                             downloadUrl = releaseInfo!!.downloadUrl,
                             onProgress = { prog -> downloadProgress = prog }
                         )
+                        showDialog = false
+                        AppUpdateManager.isUpdateFlowActive = false
                         if (file != null) {
-                            cachedApkFile = file
-                            step = UpdateStep.READY_TO_INSTALL
-                        } else {
-                            step = UpdateStep.NEEDS_UPDATE
+                            AppUpdateManager.installApk(context, file)
                         }
                     }
                 }
-            }
-        }
-    }
-
-    // Auto-launch installer when APK is ready
-    LaunchedEffect(step) {
-        if (step == UpdateStep.READY_TO_INSTALL) {
-            val file = cachedApkFile
-            if (file != null) {
-                showDialog = false
-                AppUpdateManager.installApk(context, file)
             }
         }
     }
@@ -297,7 +289,10 @@ fun AutoUpdateCheckerOverlay() {
 
     AlertDialog(
         onDismissRequest = {
-            if (step != UpdateStep.DOWNLOADING) showDialog = false
+            if (step != UpdateStep.DOWNLOADING) {
+                showDialog = false
+                AppUpdateManager.isUpdateFlowActive = false
+            }
         },
         icon = {
             Icon(
@@ -331,7 +326,7 @@ fun AutoUpdateCheckerOverlay() {
                     }
                     UpdateStep.NEEDS_PERM -> {
                         Text(
-                            text = "⚙️ Ayarlara yönlendirildiniz.\n\nUNMASK uygulamasına 'Bilinmeyen kaynaklardan yükle' iznini verdikten sonra bu ekrana dönün — güncelleme otomatik başlayacak.",
+                            text = "⚙️ İzin Verildikten Sonra Otomatik Yüklenecek\n\nUNMASK için 'Bilinmeyen kaynaklardan yükle' iznini açıp geri dönün.",
                             fontSize = 13.sp,
                             color = Color(0xFFB45309),
                             textAlign = TextAlign.Center,
@@ -363,7 +358,6 @@ fun AutoUpdateCheckerOverlay() {
             if (step == UpdateStep.NEEDS_UPDATE) {
                 Button(
                     onClick = {
-                        // Check permission FIRST before downloading
                         if (!AppUpdateManager.canInstall(context)) {
                             step = UpdateStep.NEEDS_PERM
                             AppUpdateManager.requestInstallPermission(context)
@@ -375,11 +369,10 @@ fun AutoUpdateCheckerOverlay() {
                                     downloadUrl = releaseInfo!!.downloadUrl,
                                     onProgress = { prog -> downloadProgress = prog }
                                 )
+                                showDialog = false
+                                AppUpdateManager.isUpdateFlowActive = false
                                 if (file != null) {
-                                    cachedApkFile = file
-                                    step = UpdateStep.READY_TO_INSTALL
-                                } else {
-                                    step = UpdateStep.NEEDS_UPDATE
+                                    AppUpdateManager.installApk(context, file)
                                 }
                             }
                         }
@@ -390,15 +383,15 @@ fun AutoUpdateCheckerOverlay() {
                     Text("ŞİMDİ GÜNCELLE", fontWeight = FontWeight.Black, color = Color.White)
                 }
             }
-            // In NEEDS_PERM state show a re-check button in case LaunchedEffect misses
             if (step == UpdateStep.NEEDS_PERM) {
                 Button(
                     onClick = {
                         if (AppUpdateManager.canInstall(context)) {
-                            val cached = cachedApkFile ?: AppUpdateManager.getCachedApk(context)
+                            val cached = AppUpdateManager.getCachedApk(context)
                             if (cached != null) {
-                                cachedApkFile = cached
-                                step = UpdateStep.READY_TO_INSTALL
+                                showDialog = false
+                                AppUpdateManager.isUpdateFlowActive = false
+                                AppUpdateManager.installApk(context, cached)
                             } else {
                                 step = UpdateStep.DOWNLOADING
                                 coroutineScope.launch {
@@ -407,16 +400,14 @@ fun AutoUpdateCheckerOverlay() {
                                         downloadUrl = releaseInfo!!.downloadUrl,
                                         onProgress = { prog -> downloadProgress = prog }
                                     )
+                                    showDialog = false
+                                    AppUpdateManager.isUpdateFlowActive = false
                                     if (file != null) {
-                                        cachedApkFile = file
-                                        step = UpdateStep.READY_TO_INSTALL
-                                    } else {
-                                        step = UpdateStep.NEEDS_UPDATE
+                                        AppUpdateManager.installApk(context, file)
                                     }
                                 }
                             }
                         } else {
-                            // Permission still not granted; re-open Settings
                             AppUpdateManager.requestInstallPermission(context)
                         }
                     },
@@ -429,7 +420,10 @@ fun AutoUpdateCheckerOverlay() {
         },
         dismissButton = {
             if (step == UpdateStep.NEEDS_UPDATE || step == UpdateStep.NEEDS_PERM) {
-                TextButton(onClick = { showDialog = false }) {
+                TextButton(onClick = {
+                    showDialog = false
+                    AppUpdateManager.isUpdateFlowActive = false
+                }) {
                     Text("SONRA", color = Color.Black.copy(alpha = 0.5f), fontWeight = FontWeight.Bold)
                 }
             }
