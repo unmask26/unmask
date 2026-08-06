@@ -808,8 +808,28 @@ fun DunyaScreen(
                         val isEndedByMe = session.endedByUserId == user.uid
                         if (isEndedByMe) {
                             LaunchedEffect(Unit) {
-                                kotlinx.coroutines.delay(15000L) // Rakibin bildirimi alması için 15s bekle
+                                kotlinx.coroutines.delay(2000L) // Rakibin bildirimi alması için 2s bekle
                                 repository.deleteSession(session.id)
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(Color.White),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    CircularProgressIndicator(color = Color(0xFF8B5CF6))
+                                    Text(
+                                        text = "Oyun sonlandırılıyor... 🎮",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = Color.Black
+                                    )
+                                }
                             }
                         } else {
                             AlertDialog(
