@@ -1196,6 +1196,9 @@ fun OnlineGameplayView(
     var isPublishingToWorld by remember { mutableStateOf(false) }
 
     var lastOpponentVideoUrl by remember(session.id) { mutableStateOf("") }
+    var lastOpponentLocalVideoPath by remember(session.id) { mutableStateOf("") }
+    var lastMyLocalVideoPath by remember(session.id) { mutableStateOf("") }
+
     LaunchedEffect(session.videoUrl, session.videoSenderId) {
         if (session.videoUrl.isNotEmpty() && session.videoSenderId.isNotEmpty() && session.videoSenderId != userId) {
             lastOpponentVideoUrl = session.videoUrl
@@ -1896,6 +1899,7 @@ fun OnlineGameplayView(
                                                         }
 
                                                         val url = repository.uploadOnlineVideo(session.id, uriSnapshot)
+                                                        lastMyLocalVideoPath = uriSnapshot.toString()
                                                         val newUser1Count = if (session.user1Id == userId) session.user1TaskCount + 1 else session.user1TaskCount
                                                         val newUser2Count = if (session.user2Id == userId) session.user2TaskCount + 1 else session.user2TaskCount
                                                         repository.updateSession(
@@ -2220,6 +2224,7 @@ fun OnlineGameplayView(
                                     file
                                 }
                                 localVideoPath = cachedFile.absolutePath
+                                lastOpponentLocalVideoPath = cachedFile.absolutePath
                             } catch (e: Exception) {
                                 e.printStackTrace()
                                 // Fallback: stream directly if download fails
@@ -2560,46 +2565,66 @@ fun OnlineGameplayView(
                     }
                 } else {
                     // Sender waits for opponent turn: Play opponent's previous video, then own video, then show waiting status
-                    var senderStage by remember(session.videoUrl) { mutableStateOf(if (lastOpponentVideoUrl.isNotEmpty()) 1 else 2) }
-                    var senderLocalVideoPath by remember(senderStage, lastOpponentVideoUrl, session.videoUrl) { mutableStateOf<String?>(null) }
-                    var isSenderCaching by remember(senderStage, lastOpponentVideoUrl, session.videoUrl) { mutableStateOf(false) }
-
-                    val targetUrl = remember(senderStage, lastOpponentVideoUrl, session.videoUrl) {
-                        if (senderStage == 1 && lastOpponentVideoUrl.isNotEmpty()) lastOpponentVideoUrl
-                        else if (senderStage == 2 && session.videoUrl.isNotEmpty()) session.videoUrl
-                        else ""
+                    val hasOpponentLocalVideo = remember(lastOpponentLocalVideoPath) {
+                        lastOpponentLocalVideoPath.isNotEmpty() && java.io.File(lastOpponentLocalVideoPath).exists()
+                    }
+                    val hasMyLocalVideo = remember(lastMyLocalVideoPath, session.videoUrl) {
+                        (lastMyLocalVideoPath.isNotEmpty() && (lastMyLocalVideoPath.startsWith("content://") || lastMyLocalVideoPath.startsWith("file://") || java.io.File(lastMyLocalVideoPath).exists())) || session.videoUrl.isNotEmpty()
                     }
 
-                    // Cache video for smooth local playback
+                    var senderStage by remember(session.videoUrl, lastOpponentLocalVideoPath) {
+                        mutableStateOf(if (hasOpponentLocalVideo) 1 else if (hasMyLocalVideo) 2 else 3)
+                    }
+
+                    val targetUrl = remember(senderStage, lastOpponentLocalVideoPath, lastMyLocalVideoPath, session.videoUrl) {
+                        when (senderStage) {
+                            1 -> if (hasOpponentLocalVideo) lastOpponentLocalVideoPath else ""
+                            2 -> if (lastMyLocalVideoPath.isNotEmpty()) lastMyLocalVideoPath else session.videoUrl
+                            else -> ""
+                        }
+                    }
+
+                    var senderLocalVideoPath by remember(senderStage, targetUrl) { mutableStateOf<String?>(null) }
+                    var isSenderCaching by remember(senderStage, targetUrl) { mutableStateOf(false) }
+
+                    // Cache video if network URL is passed, or use direct path if local file / content uri
                     LaunchedEffect(targetUrl) {
                         if (targetUrl.isNotEmpty()) {
-                            isSenderCaching = true
-                            senderLocalVideoPath = null
-                            try {
-                                val cachedFile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                                    val urlHash = targetUrl.hashCode().let { if (it < 0) "n${-it}" else "$it" }
-                                    val fileName = "online_sender_play_${urlHash}.mp4"
-                                    val file = java.io.File(context.cacheDir, fileName)
-                                    if (!file.exists() || file.length() == 0L) {
-                                        val url = java.net.URL(targetUrl)
-                                        url.openStream().use { input ->
-                                            file.outputStream().use { output ->
-                                                input.copyTo(output)
+                            if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+                                isSenderCaching = true
+                                senderLocalVideoPath = null
+                                try {
+                                    val cachedFile = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        val urlHash = targetUrl.hashCode().let { if (it < 0) "n${-it}" else "$it" }
+                                        val fileName = "online_sender_play_${urlHash}.mp4"
+                                        val file = java.io.File(context.cacheDir, fileName)
+                                        if (!file.exists() || file.length() == 0L) {
+                                            val url = java.net.URL(targetUrl)
+                                            url.openStream().use { input ->
+                                                file.outputStream().use { output ->
+                                                    input.copyTo(output)
+                                                }
                                             }
                                         }
+                                        file
                                     }
-                                    file
+                                    senderLocalVideoPath = cachedFile.absolutePath
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    senderLocalVideoPath = targetUrl
+                                } finally {
+                                    isSenderCaching = false
                                 }
-                                senderLocalVideoPath = cachedFile.absolutePath
-                            } catch (e: Exception) {
-                                e.printStackTrace()
+                            } else {
                                 senderLocalVideoPath = targetUrl
-                            } finally {
                                 isSenderCaching = false
                             }
                         } else {
                             senderLocalVideoPath = null
                             isSenderCaching = false
+                            if (senderStage in 1..2) {
+                                senderStage = if (senderStage == 1 && hasMyLocalVideo) 2 else 3
+                            }
                         }
                     }
 
@@ -2618,11 +2643,16 @@ fun OnlineGameplayView(
                                     }
                                 }
                             } else if (senderLocalVideoPath != null) {
-                                androidx.compose.runtime.key(senderLocalVideoPath) {
+                                androidx.compose.runtime.key(senderLocalVideoPath, senderStage) {
                                     AndroidView(
                                         factory = { ctx ->
                                             VideoView(ctx).apply {
-                                                setVideoPath(senderLocalVideoPath!!)
+                                                val path = senderLocalVideoPath!!
+                                                if (path.startsWith("content://") || path.startsWith("file://")) {
+                                                    setVideoURI(android.net.Uri.parse(path))
+                                                } else {
+                                                    setVideoPath(path)
+                                                }
                                                 setOnPreparedListener { start() }
                                                 setOnCompletionListener {
                                                     if (senderStage == 1) {
@@ -2630,6 +2660,14 @@ fun OnlineGameplayView(
                                                     } else {
                                                         senderStage = 3 // Finished playlist -> show waiting UI
                                                     }
+                                                }
+                                                setOnErrorListener { _, _, _ ->
+                                                    if (senderStage == 1) {
+                                                        senderStage = 2
+                                                    } else {
+                                                        senderStage = 3
+                                                    }
+                                                    true
                                                 }
                                             }
                                         },
