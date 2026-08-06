@@ -19,6 +19,10 @@ data class CategoryInfo(
 object Constants {
     const val CLOUDFLARE_WORKER_URL = "https://unmask-api.kullaniciadi.workers.dev/upload"
 
+    // Katmanlı Görev Sistemi Sabitleri
+    const val MAX_LAYER = 6
+    val LAYER_NAMES = listOf("İlkyüz", "İkinyüz", "Üçyüz", "Dörtyüz", "Beşyüz", "Nihai Yüz")
+
     // Cloudflare R2 Credentials for unmask-media bucket
     const val CLOUDFLARE_R2_ACCESS_KEY_ID = "e1c47ce21cb9556fb19d0e40bc860cbd"
     const val CLOUDFLARE_R2_SECRET_ACCESS_KEY = "61fd1be3a813f781af94d3e2775ad2a93236ca02472883503ed28e110f8d0f07"

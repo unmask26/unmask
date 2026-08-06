@@ -411,9 +411,11 @@ fun DunyaScreen(
                                                     user1Id = user.uid,
                                                     user1Name = displayedName,
                                                     user1Gender = user.gender,
+                                                    user1Age = user.age,
                                                     user2Id = targetUser.userId,
                                                     user2Name = targetUser.userName,
                                                     user2Gender = targetUser.gender,
+                                                    user2Age = targetUser.age,
                                                     category = selectedOnlineCategory ?: ""
                                                 )
                                             }
@@ -662,32 +664,47 @@ fun DunyaScreen(
                                 val isOnlineMatchmaking = session.commonCategory.isNotEmpty()
                                 val updated: OnlineSession
                                 if (isOnlineMatchmaking) {
-                                    // İlk sıra session.user2Id'de (oyun seçiminde currentTurn user2'ye geçer)
+                                    // İlk sıra user2Id'de. User2'nin kendi yaş profilinden 1. kutu görevini çek
                                     val firstTurnUserId = session.user2Id
-                                    val currentTurnGender = if (firstTurnUserId == session.user1Id) session.user1Gender else session.user2Gender
-                                    val otherGender = if (firstTurnUserId == session.user1Id) session.user2Gender else session.user1Gender
-                                    val poolKey = when {
-                                        currentTurnGender == "Kadın" && otherGender == "Erkek" -> "kadinin_erkege"
-                                        currentTurnGender == "Erkek" && otherGender == "Kadın" -> "erkege_kadina"
-                                        currentTurnGender == "Kadın" && otherGender == "Kadın" -> "kadinin_kadina"
-                                        currentTurnGender == "Erkek" && otherGender == "Erkek" -> "erkege_erkege"
-                                        else -> "erkege_kadina"
+                                    val currentTurnIsUser1 = firstTurnUserId == session.user1Id
+                                    val playerAge = if (currentTurnIsUser1) session.user1Age else session.user2Age
+                                    val playerGender = if (currentTurnIsUser1) session.user1Gender else session.user2Gender
+                                    val opponentGender = if (currentTurnIsUser1) session.user2Gender else session.user1Gender
+                                    val boxNumber = (if (currentTurnIsUser1) session.user1TaskCount else session.user2TaskCount) + 1
+
+                                    val playerProfileKey = TaskLayerManager.getIndividualProfileKey(playerAge, playerGender, opponentGender, session.commonCategory)
+                                    val useLayered = TaskLayerManager.hasProfile(playerProfileKey)
+                                    val chosenText: String
+                                    val newUsedTexts: List<String>
+                                    if (useLayered) {
+                                        val t = TaskLayerManager.getTaskForPlayerTurn(playerProfileKey, session.currentLayerNumber, boxNumber, session.usedTaskTexts)
+                                            ?: "Bir görev seçin."
+                                        chosenText = t
+                                        newUsedTexts = if (t in session.usedTaskTexts) session.usedTaskTexts else session.usedTaskTexts + t
+                                    } else {
+                                        val poolKey = when {
+                                            playerGender == "Kadın" && opponentGender == "Erkek" -> "kadinin_erkege"
+                                            playerGender == "Erkek" && opponentGender == "Kadın" -> "erkege_kadina"
+                                            playerGender == "Kadın" && opponentGender == "Kadın" -> "kadinin_kadina"
+                                            playerGender == "Erkek" && opponentGender == "Erkek" -> "erkege_erkege"
+                                            else -> "erkege_kadina"
+                                        }
+                                        val fullPool: List<String> = when (session.commonCategory.lowercase()) {
+                                            "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+                                            "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
+                                            "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
+                                            "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
+                                            "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
+                                            "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
+                                            "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
+                                            "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
+                                            else         -> emptyList()
+                                        }
+                                        val available = fullPool.filter { it !in session.usedTaskTexts }
+                                        val pool = if (available.isEmpty()) fullPool else available
+                                        chosenText = pool.randomOrNull() ?: "Bir görev seçin."
+                                        newUsedTexts = if (available.isEmpty()) listOf(chosenText) else (session.usedTaskTexts + chosenText)
                                     }
-                                    val fullPool: List<String> = when (session.commonCategory.lowercase()) {
-                                        "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
-                                        "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
-                                        "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
-                                        "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
-                                        "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
-                                        "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
-                                        "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
-                                        "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
-                                        else         -> emptyList()
-                                    }
-                                    val availablePool = fullPool.filter { it !in session.usedTaskTexts }
-                                    val taskPool = if (availablePool.isEmpty()) fullPool else availablePool
-                                    val chosenText = taskPool.randomOrNull() ?: "Bir görev seçin."
-                                    val newUsedTexts = if (availablePool.isEmpty()) listOf(chosenText) else (session.usedTaskTexts + chosenText)
                                     updated = session.copy(
                                         selectedGameId = gameId,
                                         status = "playing",
@@ -696,6 +713,7 @@ fun DunyaScreen(
                                         activeTaskId = "online-task-${java.util.UUID.randomUUID()}",
                                         activeTaskText = chosenText,
                                         usedTaskTexts = newUsedTexts,
+                                        layerProfileKey = playerProfileKey,
                                         lastHeartbeat = System.currentTimeMillis()
                                     )
                                 } else {
@@ -1350,39 +1368,57 @@ fun OnlineGameplayView(
         if (session.activeCardCode.isEmpty() && isMyTurn) {
             val isOnlineMatchmaking = session.commonCategory.isNotEmpty()
             if (isOnlineMatchmaking) {
-                val currentTurnGender = if (session.currentTurn == session.user1Id) session.user1Gender else session.user2Gender
-                val otherGender = if (session.currentTurn == session.user1Id) session.user2Gender else session.user1Gender
-                val poolKey = when {
-                    currentTurnGender == "Kadın" && otherGender == "Erkek" -> "kadinin_erkege"
-                    currentTurnGender == "Erkek" && otherGender == "Kadın" -> "erkege_kadina"
-                    currentTurnGender == "Kadın" && otherGender == "Kadın" -> "kadinin_kadina"
-                    currentTurnGender == "Erkek" && otherGender == "Erkek" -> "erkege_erkege"
-                    else -> "erkege_kadina"
+                // Sıradaki oyuncunun kendi yaş profilini ve kutu numarasını hesapla
+                val currentTurnIsUser1 = session.currentTurn == session.user1Id
+                val playerAge = if (currentTurnIsUser1) session.user1Age else session.user2Age
+                val playerGender = if (currentTurnIsUser1) session.user1Gender else session.user2Gender
+                val opponentGender = if (currentTurnIsUser1) session.user2Gender else session.user1Gender
+                val boxNumber = (if (currentTurnIsUser1) session.user1TaskCount else session.user2TaskCount) + 1
+
+                val playerProfileKey = TaskLayerManager.getIndividualProfileKey(playerAge, playerGender, opponentGender, session.commonCategory)
+                val useLayered = TaskLayerManager.hasProfile(playerProfileKey)
+                val chosenText: String
+                val newUsedTexts: List<String>
+                if (useLayered) {
+                    val t = TaskLayerManager.getTaskForPlayerTurn(playerProfileKey, session.currentLayerNumber, boxNumber, session.usedTaskTexts)
+                        ?: "Bir görev seçin."
+                    chosenText = t
+                    newUsedTexts = if (t in session.usedTaskTexts) session.usedTaskTexts else session.usedTaskTexts + t
+                } else {
+                    val poolKey = when {
+                        playerGender == "Kadın" && opponentGender == "Erkek" -> "kadinin_erkege"
+                        playerGender == "Erkek" && opponentGender == "Kadın" -> "erkege_kadina"
+                        playerGender == "Kadın" && opponentGender == "Kadın" -> "kadinin_kadina"
+                        playerGender == "Erkek" && opponentGender == "Erkek" -> "erkege_erkege"
+                        else -> "erkege_kadina"
+                    }
+                    val fullPool: List<String> = when (session.commonCategory.lowercase()) {
+                        "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+                        "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
+                        "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
+                        "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
+                        "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
+                        "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
+                        "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
+                        "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
+                        else         -> emptyList()
+                    }
+                    val availablePool = fullPool.filter { it !in session.usedTaskTexts }
+                    val taskPool = if (availablePool.isEmpty()) fullPool else availablePool
+                    chosenText = taskPool.randomOrNull() ?: "Bir görev seçin."
+                    newUsedTexts = if (availablePool.isEmpty()) listOf(chosenText) else (session.usedTaskTexts + chosenText)
                 }
-                val fullPool: List<String> = when (session.commonCategory.lowercase()) {
-                    "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
-                    "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
-                    "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
-                    "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
-                    "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
-                    "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
-                    "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
-                    "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
-                    else         -> emptyList()
-                }
-                val availablePool = fullPool.filter { it !in session.usedTaskTexts }
-                val taskPool = if (availablePool.isEmpty()) fullPool else availablePool
-                val chosenText = taskPool.randomOrNull() ?: "Bir görev seçin."
-                val newUsedTexts = if (availablePool.isEmpty()) listOf(chosenText) else (session.usedTaskTexts + chosenText)
                 repository.updateSession(
                     session.copy(
                         activeCardCode = "ON",
                         activeTaskId = "online-task-${java.util.UUID.randomUUID()}",
                         activeTaskText = chosenText,
                         usedTaskTexts = newUsedTexts,
+                        layerProfileKey = playerProfileKey,
                         lastHeartbeat = System.currentTimeMillis()
                     )
                 )
+
             } else {
                 val allTasks = (Constants.TASKS + customTasks).filter { it.gameId == activeGame.id }
                 val availableTasks = allTasks.filter { it.id !in session.usedTaskIds }
@@ -1748,26 +1784,22 @@ fun OnlineGameplayView(
                             ) {
                                 Card(
                                     shape = RoundedCornerShape(24.dp),
-                                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.7f)),
-                                    modifier = Modifier
-                                        .fillMaxWidth(0.9f)
-                                        .border(2.dp, Color.White.copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                                    colors = CardDefaults.cardColors(containerColor = Color.Black.copy(alpha = 0.6f)),
+                                    modifier = Modifier.fillMaxWidth(0.9f)
                                 ) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(20.dp),
+                                            .padding(horizontal = 20.dp, vertical = 16.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text(
-                                                text = currentTaskText,
-                                                color = Color.White,
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center
-                                            )
-                                        }
+                                        Text(
+                                            text = currentTaskText,
+                                            color = Color.White,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            textAlign = TextAlign.Center
+                                        )
                                     }
                                 }
 
@@ -2322,67 +2354,110 @@ fun OnlineGameplayView(
 
                                     val totalTasksDone = session.user1TaskCount + session.user2TaskCount
                                     val maxTasks = 10
+                                    val maxLayer = if (TaskLayerManager.hasProfile(session.layerProfileKey)) TaskLayerManager.getMaxLayer(session.layerProfileKey) else 6
+
                                     if (totalTasksDone >= maxTasks) {
-                                        Button(
-                                            onClick = {
-                                                val videoUrlToDelete = session.videoUrl
-                                                coroutineScope.launch {
-                                                    if (videoUrlToDelete.isNotEmpty()) repository.deleteOnlineVideo(videoUrlToDelete)
-                                                    repository.updateSession(
-                                                        session.copy(
-                                                            status = "finished",
-                                                            videoUrl = "",
-                                                            downloadRequestStatus = "none",
-                                                            lastHeartbeat = System.currentTimeMillis()
-                                                        )
-                                                    )
-                                                }
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981), contentColor = Color.White),
-                                            shape = RoundedCornerShape(16.dp),
-                                            modifier = Modifier.height(56.dp).fillMaxWidth(0.6f)
-                                        ) {
-                                            Text("🏆 OYUNU BİTİR", fontWeight = FontWeight.Black)
-                                        }
-                                    } else {
-                                        Button(
-                                            onClick = {
-                                                val videoUrlToDelete = session.videoUrl
-                                                coroutineScope.launch {
-                                                    if (videoUrlToDelete.isNotEmpty()) {
-                                                        repository.deleteOnlineVideo(videoUrlToDelete)
-                                                    }
-                                                    val isMatchmaking = session.commonCategory.isNotEmpty()
-                                                    if (isMatchmaking) {
+                                        if (session.currentLayerNumber >= maxLayer) {
+                                            Button(
+                                                onClick = {
+                                                    val videoUrlToDelete = session.videoUrl
+                                                    coroutineScope.launch {
+                                                        if (videoUrlToDelete.isNotEmpty()) repository.deleteOnlineVideo(videoUrlToDelete)
+                                                        if (session.commonCategory.isNotEmpty()) {
+                                                            repository.savePairLayerProgress(session.user1Id, session.user2Id, session.commonCategory, session.currentLayerNumber)
+                                                        }
                                                         repository.updateSession(
                                                             session.copy(
+                                                                status = "finished",
+                                                                videoUrl = "",
+                                                                videoSenderId = "",
+                                                                downloadRequestStatus = "none",
+                                                                lastHeartbeat = System.currentTimeMillis()
+                                                            )
+                                                        )
+                                                    }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981), contentColor = Color.White),
+                                                shape = RoundedCornerShape(16.dp),
+                                                modifier = Modifier.height(56.dp).fillMaxWidth(0.6f)
+                                            ) {
+                                                Text("🏆 OYUNU BİTİR", fontWeight = FontWeight.Black)
+                                            }
+                                        } else {
+                                            Button(
+                                                onClick = {
+                                                    coroutineScope.launch {
+                                                        val isMatchmaking = session.commonCategory.isNotEmpty()
+                                                        val nextLayer = session.currentLayerNumber + 1
+                                                        
+                                                        if (isMatchmaking) {
+                                                            repository.savePairLayerProgress(session.user1Id, session.user2Id, session.commonCategory, nextLayer)
+                                                        }
+                                                        
+                                                        repository.updateSession(
+                                                            session.copy(
+                                                                status = "playing",
+                                                                user1TaskCount = 0,
+                                                                user2TaskCount = 0,
                                                                 activeCardCode = "",
                                                                 activeTaskId = "",
                                                                 activeTaskText = "",
                                                                 videoUrl = "",
+                                                                videoSenderId = "",
                                                                 downloadRequestStatus = "none",
-                                                                currentTurn = userId,
-                                                                lastHeartbeat = System.currentTimeMillis()
-                                                            )
-                                                        )
-                                                    } else {
-                                                        val allTasks = (Constants.TASKS + customTasks).filter { it.gameId == activeGame.id }
-                                                        val availableTasks = allTasks.filter { it.id !in session.usedTaskIds }
-                                                        val taskPool = if (availableTasks.isEmpty()) allTasks else availableTasks
-                                                        val task = taskPool.randomOrNull() ?: Constants.TASKS.first()
-                                                        val newUsedIds = if (availableTasks.isEmpty()) listOf(task.id) else (session.usedTaskIds + task.id)
-                                                        repository.updateSession(
-                                                            session.copy(
-                                                                activeCardCode = task.cardCode,
-                                                                activeTaskId = task.id,
-                                                                usedTaskIds = newUsedIds,
-                                                                videoUrl = "",
-                                                                downloadRequestStatus = "none",
-                                                                currentTurn = userId,
+                                                                usedTaskIds = emptyList(),
+                                                                usedTaskTexts = emptyList(),
+                                                                replayRequestStatus = "none",
+                                                                replayRequesterId = "",
+                                                                replayRequesterName = "",
+                                                                currentTurn = session.user1Id,
+                                                                currentLayerNumber = nextLayer,
                                                                 lastHeartbeat = System.currentTimeMillis()
                                                             )
                                                         )
                                                     }
+                                                },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6), contentColor = Color.White),
+                                                shape = RoundedCornerShape(16.dp),
+                                                modifier = Modifier
+                                                    .height(56.dp)
+                                                    .fillMaxWidth(0.6f)
+                                            ) {
+                                                Icon(imageVector = Icons.Default.Refresh, contentDescription = "Next Layer", tint = Color.White)
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Text("SONRAKİ KATMANA GEÇ (${session.currentLayerNumber + 1}/$maxLayer)", fontWeight = FontWeight.Black)
+                                            }
+                                        }
+                                    } else {
+                                        Button(
+                                            onClick = {
+                                                coroutineScope.launch {
+                                                    val videoUrlToDelete = session.videoUrl
+                                                    if (videoUrlToDelete.isNotEmpty()) {
+                                                        repository.deleteOnlineVideo(videoUrlToDelete)
+                                                    }
+
+                                                    val nextTurnUserId = if (session.videoSenderId.isNotEmpty()) {
+                                                        if (session.videoSenderId == session.user1Id) session.user2Id else session.user1Id
+                                                    } else {
+                                                        userId
+                                                    }
+
+                                                    repository.updateSession(
+                                                        session.copy(
+                                                            activeCardCode = "",
+                                                            activeTaskId = "",
+                                                            activeTaskText = "",
+                                                            videoUrl = "",
+                                                            videoSenderId = "",
+                                                            downloadRequestStatus = "none",
+                                                            replayRequestStatus = "none",
+                                                            replayRequesterId = "",
+                                                            replayRequesterName = "",
+                                                            currentTurn = nextTurnUserId,
+                                                            lastHeartbeat = System.currentTimeMillis()
+                                                        )
+                                                    )
                                                 }
                                             },
                                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6), contentColor = Color.White),
@@ -2436,14 +2511,23 @@ fun OnlineGameplayView(
                                                     Toast.makeText(context, "Video indirildi ve Anılara eklendi!", Toast.LENGTH_LONG).show()
                                                     
                                                     val videoUrlToDelete = session.videoUrl
+                                                    val nextTurnUserId = if (session.videoSenderId.isNotEmpty()) {
+                                                        if (session.videoSenderId == session.user1Id) session.user2Id else session.user1Id
+                                                    } else {
+                                                        userId
+                                                    }
+
                                                     // Complete round immediately to clear UI
                                                     repository.updateSession(
                                                         session.copy(
                                                             activeCardCode = "",
                                                             activeTaskId = "",
+                                                            activeTaskText = "",
                                                             videoUrl = "",
+                                                            videoSenderId = "",
                                                             downloadRequestStatus = "none",
-                                                            currentTurn = userId
+                                                            currentTurn = nextTurnUserId,
+                                                            lastHeartbeat = System.currentTimeMillis()
                                                         )
                                                     )
 
@@ -3002,6 +3086,10 @@ fun GameFinishedView(
                         coroutineScope.launch {
                             val isMatchmaking = session.commonCategory.isNotEmpty()
                             val nextStatus = if (isMatchmaking) "playing" else "game_selection"
+                            val nextLayer = session.currentLayerNumber + 1
+                            if (isMatchmaking) {
+                                repository.savePairLayerProgress(session.user1Id, session.user2Id, session.commonCategory, nextLayer)
+                            }
                             repository.updateSession(
                                 session.copy(
                                     status = nextStatus,
@@ -3018,6 +3106,7 @@ fun GameFinishedView(
                                     replayRequesterId = "",
                                     replayRequesterName = "",
                                     currentTurn = session.user2Id,
+                                    currentLayerNumber = nextLayer,
                                     lastHeartbeat = System.currentTimeMillis()
                                 )
                             )
@@ -3084,6 +3173,30 @@ fun GameFinishedView(
                     modifier = Modifier.padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Aktif Oyun Katmanı", fontWeight = FontWeight.Bold, color = Color.Gray, fontSize = 13.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            repeat(6) { idx ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .background(
+                                            color = if (idx < session.currentLayerNumber) Color(0xFF8B5CF6) else Color.Black.copy(alpha = 0.15f),
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Surface(color = Color(0xFF8B5CF6), shape = RoundedCornerShape(8.dp)) {
+                                Text(text = "${session.currentLayerNumber}. KATMAN (${TaskLayerManager.getLayerName(session.currentLayerNumber)})", fontWeight = FontWeight.Black, color = Color.White, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                            }
+                        }
+                    }
+                    Divider(color = Color.Black.copy(alpha = 0.08f))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,

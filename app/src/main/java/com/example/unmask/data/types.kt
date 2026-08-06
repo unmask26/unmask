@@ -47,7 +47,11 @@ data class UserProfile(
     val totalRating: Int = 0,
     val securityAnswers: Map<String, String> = emptyMap(),
     val following: List<String> = emptyList(),
-    val bannedUsers: List<String> = emptyList()
+    val bannedUsers: List<String> = emptyList(),
+    val notifyVideoReceived: Boolean = true,
+    val notifyGameInvite: Boolean = true,
+    val notifyGameOver: Boolean = true,
+    val notifyTurnReminder: Boolean = true
 ) {
     val isUserAdult: Boolean
         get() {
@@ -70,6 +74,30 @@ data class UserProfile(
                 !calBirth.after(cal18Mins)
             } catch (e: Exception) {
                 false
+            }
+        }
+
+    val age: Int
+        get() {
+            if (birthDate.isBlank()) return 22
+            return try {
+                val parts = birthDate.trim().split("-", ".", "/")
+                if (parts.size != 3) return 22
+                val (year, month, day) = if (parts[0].length == 4) {
+                    Triple(parts[0].toInt(), parts[1].toInt(), parts[2].toInt())
+                } else {
+                    Triple(parts[2].toInt(), parts[1].toInt(), parts[0].toInt())
+                }
+                val now = java.util.Calendar.getInstance()
+                var ageCalc = now.get(java.util.Calendar.YEAR) - year
+                val nowMonth = now.get(java.util.Calendar.MONTH) + 1
+                val nowDay = now.get(java.util.Calendar.DAY_OF_MONTH)
+                if (nowMonth < month || (nowMonth == month && nowDay < day)) {
+                    ageCalc--
+                }
+                if (ageCalc in 10..120) ageCalc else 22
+            } catch (e: Exception) {
+                22
             }
         }
 }
@@ -122,6 +150,8 @@ data class OnlineSession(
     val user2Name: String = "",
     val user1Gender: String = "Erkek",
     val user2Gender: String = "Erkek",
+    val user1Age: Int = 22,                    // Katman profili için yaş
+    val user2Age: Int = 22,                    // Katman profili için yaş
     val status: String = "category_selection", // "category_selection", "game_selection", "playing", "rating", "finished"
     val user1Categories: List<String> = emptyList(),
     val user2Categories: List<String> = emptyList(),
@@ -146,8 +176,14 @@ data class OnlineSession(
     val replayRequesterName: String = "",
     val endedByUserId: String = "",
     val endedByUserName: String = "",
-    val videoWatchedByReceiver: Boolean = false
-)
+    val videoWatchedByReceiver: Boolean = false,
+    val currentLayerNumber: Int = 1,               // Katmanlı görev sistemi: aktif katman (1-6)
+    val layerProfileKey: String = ""               // Katman profil anahtarı (ör: "18-22_erkek-kadin_iliskiler")
+) {
+    val isMaxLayerReached: Boolean
+        get() = currentLayerNumber >= Constants.MAX_LAYER
+}
+
 
 @Serializable
 data class Comment(

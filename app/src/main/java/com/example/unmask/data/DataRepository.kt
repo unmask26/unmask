@@ -42,7 +42,17 @@ interface DataRepository {
     suspend fun loginWithCredential(credential: AuthCredential, googleBirthDate: String = ""): UserProfile
     suspend fun logout()
     
-    suspend fun updateProfile(displayName: String, nickname: String, gender: String, birthDate: String, adultPassword: String = ""): UserProfile
+    suspend fun updateProfile(
+        displayName: String,
+        nickname: String,
+        gender: String,
+        birthDate: String,
+        adultPassword: String = "",
+        notifyVideoReceived: Boolean = true,
+        notifyGameInvite: Boolean = true,
+        notifyGameOver: Boolean = true,
+        notifyTurnReminder: Boolean = true
+    ): UserProfile
     
     fun getMemories(userId: String): Flow<List<Memory>>
     fun getPublicMemories(): Flow<List<Memory>>
@@ -72,7 +82,9 @@ interface DataRepository {
     suspend fun updatePresence(userId: String, userName: String, status: String, banUntil: Long = 0, gender: String = "Erkek")
     suspend fun removePresence(userId: String)
     fun observeActiveSession(userId: String): Flow<OnlineSession?>
-    suspend fun createSession(user1Id: String, user1Name: String, user1Gender: String = "Erkek", user2Id: String, user2Name: String, user2Gender: String = "Erkek", category: String = ""): String
+    suspend fun getPairLayerProgress(user1Id: String, user2Id: String, category: String): Int
+    suspend fun savePairLayerProgress(user1Id: String, user2Id: String, category: String, layer: Int)
+    suspend fun createSession(user1Id: String, user1Name: String, user1Gender: String = "Erkek", user1Age: Int = 22, user2Id: String, user2Name: String, user2Gender: String = "Erkek", user2Age: Int = 22, category: String = ""): String
     suspend fun updateSession(session: OnlineSession)
     suspend fun updateSessionHeartbeat(sessionId: String)
     suspend fun deleteSession(sessionId: String)
@@ -522,7 +534,17 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         _currentUser.value = null
     }
 
-    override suspend fun updateProfile(displayName: String, nickname: String, gender: String, birthDate: String, adultPassword: String): UserProfile {
+    override suspend fun updateProfile(
+        displayName: String,
+        nickname: String,
+        gender: String,
+        birthDate: String,
+        adultPassword: String,
+        notifyVideoReceived: Boolean,
+        notifyGameInvite: Boolean,
+        notifyGameOver: Boolean,
+        notifyTurnReminder: Boolean
+    ): UserProfile {
         val current = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
         val uid = current.uid
         
@@ -535,7 +557,11 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             gender = gender,
             birthDate = birthDate,
             isAdult = isAdult,
-            adultPassword = adultPassword
+            adultPassword = adultPassword,
+            notifyVideoReceived = notifyVideoReceived,
+            notifyGameInvite = notifyGameInvite,
+            notifyGameOver = notifyGameOver,
+            notifyTurnReminder = notifyTurnReminder
         )
 
         if (uid != "offline_demo_user") {
@@ -865,43 +891,66 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         user1Id: String,
         user1Name: String,
         user1Gender: String,
+        user1Age: Int,
         user2Id: String,
         user2Name: String,
         user2Gender: String,
+        user2Age: Int,
         category: String
     ): String {
         val sessionId = "session-" + UUID.randomUUID().toString()
 
-        val currentTurnGender = user2Gender
-        val otherGender = user1Gender
-        val poolKey = when {
-            currentTurnGender == "Kadın" && otherGender == "Erkek" -> "kadinin_erkege"
-            currentTurnGender == "Erkek" && otherGender == "Kadın" -> "erkege_kadina"
-            currentTurnGender == "Kadın" && otherGender == "Kadın" -> "kadinin_kadina"
-            currentTurnGender == "Erkek" && otherGender == "Erkek" -> "erkege_erkege"
-            else -> "erkege_kadina"
+        // Firestore'dan kayıtlı çift katman ilerlemesini oku
+        val savedLayer = getPairLayerProgress(user1Id, user2Id, category)
+
+        // İlk hamle User2'de olacağı için User2'nin kendi bireysel yaş profilinden 1. kutu görevini çek
+        val user2ProfileKey = TaskLayerManager.getIndividualProfileKey(user2Age, user2Gender, user1Gender, category)
+        val useLayeredSystem = TaskLayerManager.hasProfile(user2ProfileKey)
+
+        val chosenText: String
+        val usedTexts: List<String>
+
+        if (useLayeredSystem) {
+            val task = TaskLayerManager.getTaskForPlayerTurn(user2ProfileKey, layerNumber = savedLayer, boxNumber = 1)
+                ?: "Bir görev seçin."
+            chosenText = task
+            usedTexts = listOf(task)
+        } else {
+            // Eski sistem: cinsiyet bazlı havuz
+            val currentTurnGender = user2Gender
+            val otherGender = user1Gender
+            val poolKey = when {
+                currentTurnGender == "Kadın" && otherGender == "Erkek" -> "kadinin_erkege"
+                currentTurnGender == "Erkek" && otherGender == "Kadın" -> "erkege_kadina"
+                currentTurnGender == "Kadın" && otherGender == "Kadın" -> "kadinin_kadina"
+                currentTurnGender == "Erkek" && otherGender == "Erkek" -> "erkege_erkege"
+                else -> "erkege_kadina"
+            }
+            val fullPool: List<String> = when (category.lowercase()) {
+                "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+                "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
+                "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
+                "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
+                "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
+                "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
+                "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
+                "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
+                else         -> emptyList()
+            }
+            chosenText = fullPool.randomOrNull() ?: "Bir soru sorun veya bir görev verin."
+            usedTexts = listOf(chosenText)
         }
-        val fullPool: List<String> = when (category.lowercase()) {
-            "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
-            "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
-            "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
-            "aktuel"     -> Constants.ONLINE_AKTUEL_TASKS[poolKey] ?: emptyList()
-            "hatiralar"  -> Constants.ONLINE_HATIRALAR_TASKS[poolKey] ?: emptyList()
-            "fanteziler" -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: emptyList()
-            "adult"      -> Constants.ONLINE_ADULT_TASKS[poolKey] ?: emptyList()
-            "softhub"    -> Constants.ONLINE_SOFTHUB_TASKS[poolKey] ?: emptyList()
-            else         -> emptyList()
-        }
-        val chosenText = fullPool.randomOrNull() ?: "Bir soru sorun veya bir görev verin."
 
         val session = OnlineSession(
             id = sessionId,
             user1Id = user1Id,
             user1Name = user1Name,
             user1Gender = user1Gender,
+            user1Age = user1Age,
             user2Id = user2Id,
             user2Name = user2Name,
             user2Gender = user2Gender,
+            user2Age = user2Age,
             status = "playing",
             commonCategory = category,
             selectedGameId = "online-matchmaking-game",
@@ -909,7 +958,9 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             activeCardCode = "ON",
             activeTaskId = "online-task-${UUID.randomUUID()}",
             activeTaskText = chosenText,
-            usedTaskTexts = listOf(chosenText),
+            usedTaskTexts = usedTexts,
+            currentLayerNumber = savedLayer,
+            layerProfileKey = user2ProfileKey,
             lastHeartbeat = System.currentTimeMillis()
         )
         
@@ -952,6 +1003,38 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             }
         }
         return sessionId
+    }
+
+    override suspend fun getPairLayerProgress(user1Id: String, user2Id: String, category: String): Int {
+        if (category.isBlank() || user1Id.isBlank() || user2Id.isBlank()) return 1
+        return try {
+            val pairKey = TaskLayerManager.getPairKey(user1Id, user2Id, category)
+            val doc = firestore.collection("pair_layer_progress").document(pairKey).get().await()
+            val layer = doc.getLong("currentLayer")?.toInt() ?: 1
+            layer.coerceIn(1, Constants.MAX_LAYER)
+        } catch (e: Exception) {
+            1
+        }
+    }
+
+    override suspend fun savePairLayerProgress(user1Id: String, user2Id: String, category: String, layer: Int) {
+        if (category.isBlank() || user1Id.isBlank() || user2Id.isBlank()) return
+        try {
+            val pairKey = TaskLayerManager.getPairKey(user1Id, user2Id, category)
+            val clampedLayer = layer.coerceIn(1, Constants.MAX_LAYER)
+            firestore.collection("pair_layer_progress").document(pairKey).set(
+                mapOf(
+                    "pairKey" to pairKey,
+                    "user1Id" to user1Id,
+                    "user2Id" to user2Id,
+                    "category" to category,
+                    "currentLayer" to clampedLayer,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+            ).await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override suspend fun updateSession(session: OnlineSession) {
@@ -1622,12 +1705,15 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         var realSenderId = request.senderId
         var realReceiverId = request.receiverId
 
+        var senderPresence: OnlineUserPresence? = null
+        var receiverPresence: OnlineUserPresence? = null
+
         try {
             val docs = firestore.collection("online_users").get().await()
             val presences = docs.documents.mapNotNull { it.toObject(OnlineUserPresence::class.java) }
 
-            val senderPresence = presences.find { it.userId == request.senderId || it.userName.equals(request.senderNickname, ignoreCase = true) }
-            val receiverPresence = presences.find { it.userId == request.receiverId || it.userName.equals(request.receiverNickname, ignoreCase = true) }
+            senderPresence = presences.find { it.userId == request.senderId || it.userName.equals(request.senderNickname, ignoreCase = true) }
+            receiverPresence = presences.find { it.userId == request.receiverId || it.userName.equals(request.receiverNickname, ignoreCase = true) }
 
             if (senderPresence != null && senderPresence.userId.isNotBlank()) {
                 realSenderId = senderPresence.userId
@@ -1643,9 +1729,11 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             user1Id = realSenderId,
             user1Name = request.senderNickname,
             user1Gender = request.senderGender,
+            user1Age = senderPresence?.age ?: 22,
             user2Id = realReceiverId,
             user2Name = request.receiverNickname,
             user2Gender = request.receiverGender,
+            user2Age = receiverPresence?.age ?: 22,
             category = request.selectedCategory
         )
 

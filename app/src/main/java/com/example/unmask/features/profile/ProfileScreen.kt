@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -60,6 +61,10 @@ fun ProfileScreen(
     var selectedGender by remember { mutableStateOf("Erkek") }
     var birthDate by remember { mutableStateOf("") }
     var adultPassword by remember { mutableStateOf("") }
+    var notifyVideoReceived by remember { mutableStateOf(true) }
+    var notifyGameInvite by remember { mutableStateOf(true) }
+    var notifyGameOver by remember { mutableStateOf(true) }
+    var notifyTurnReminder by remember { mutableStateOf(true) }
     var isLoading by remember { mutableStateOf(false) }
     var showBuyCardScreen by remember { mutableStateOf(false) }
 
@@ -80,6 +85,10 @@ fun ProfileScreen(
                 selectedGender = u.gender
                 birthDate = u.birthDate
                 adultPassword = u.adultPassword ?: ""
+                notifyVideoReceived = u.notifyVideoReceived
+                notifyGameInvite = u.notifyGameInvite
+                notifyGameOver = u.notifyGameOver
+                notifyTurnReminder = u.notifyTurnReminder
                 if (u.birthDate.isNotEmpty()) {
                     hasInitialized = true
                 }
@@ -114,7 +123,17 @@ fun ProfileScreen(
         coroutineScope.launch {
             isLoading = true
             try {
-                repository.updateProfile(displayName, nickname, selectedGender, birthDate, adultPassword)
+                repository.updateProfile(
+                    displayName = displayName,
+                    nickname = nickname,
+                    gender = selectedGender,
+                    birthDate = birthDate,
+                    adultPassword = adultPassword,
+                    notifyVideoReceived = notifyVideoReceived,
+                    notifyGameInvite = notifyGameInvite,
+                    notifyGameOver = notifyGameOver,
+                    notifyTurnReminder = notifyTurnReminder
+                )
                 Toast.makeText(context, "Profil başarıyla kaydedildi!", Toast.LENGTH_SHORT).show()
                 onProfileSaved()
             } catch (e: Exception) {
@@ -288,6 +307,74 @@ fun ProfileScreen(
                 }
             }
 
+            // ─── BİLDİRİM AYARLARI ───────────────────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = Color(0xFF8B5CF6),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "BİLDİRİM AYARLARI 🔔",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.Black,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black.copy(alpha = 0.08f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        NotificationToggleItem(
+                            title = "Video Geldi 🎬",
+                            description = "Online oyun sırasında oyundan çıkış yapılırsa rakip video gönderince bildirim al",
+                            checked = notifyVideoReceived,
+                            onCheckedChange = { notifyVideoReceived = it }
+                        )
+
+                        HorizontalDivider(color = Color.Black.copy(alpha = 0.06f))
+
+                        NotificationToggleItem(
+                            title = "Oyun İsteği 🎮",
+                            description = "Uygulama açıkken veya kapalıyken oyun isteği gelince bildirim al",
+                            checked = notifyGameInvite,
+                            onCheckedChange = { notifyGameInvite = it }
+                        )
+
+                        HorizontalDivider(color = Color.Black.copy(alpha = 0.06f))
+
+                        NotificationToggleItem(
+                            title = "Oyun Bitti 🏆",
+                            description = "Rakip oyunu bitirince (uygulama kapalıyken bile) bildirim al",
+                            checked = notifyGameOver,
+                            onCheckedChange = { notifyGameOver = it }
+                        )
+
+                        HorizontalDivider(color = Color.Black.copy(alpha = 0.06f))
+
+                        NotificationToggleItem(
+                            title = "Sıra Sende ⏰",
+                            description = "Rakip video gönderdiğinde kullanıcı gecikirse her 3 dakikada bir oyunu bitirene kadar bildirim al",
+                            checked = notifyTurnReminder,
+                            onCheckedChange = { notifyTurnReminder = it }
+                        )
+                    }
+                }
+            }
+
             // Fiziki Kart Satın Al Buton Kartı
             Card(
                 shape = RoundedCornerShape(18.dp),
@@ -354,6 +441,46 @@ fun ProfileScreen(
         }
 
 
+    }
+}
+
+@Composable
+private fun NotificationToggleItem(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                fontSize = 11.sp,
+                color = Color.Black.copy(alpha = 0.5f),
+                lineHeight = 15.sp
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFF8B5CF6),
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = Color.LightGray.copy(alpha = 0.5f)
+            )
+        )
     }
 }
 

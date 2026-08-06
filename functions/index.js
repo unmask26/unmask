@@ -34,7 +34,7 @@ db.collection("direct_game_requests")
 
 const sentVideoNotifications = new Map();
 
-// online_sessions koleksiyonunda video yüklendiğinde bildirim gönder
+// online_sessions koleksiyonunda video veya durum güncellendiğinde bildirim gönder
 db.collection("online_sessions")
   .onSnapshot((snapshot) => {
     snapshot.docChanges().forEach(async (change) => {
@@ -45,6 +45,13 @@ db.collection("online_sessions")
         const videoUrl = newData.videoUrl || "";
         const videoSenderId = newData.videoSenderId || "";
         const videoWatched = newData.videoWatched || newData.videoWatchedByReceiver || false;
+        const status = newData.status || "";
+
+        // Oyun Bitti Bildirimi
+        if (status === "finished") {
+          await sendGameOverNotification(sessionId, newData);
+          return;
+        }
 
         // 1. Rakip kullanıcıda video izlenmişse, video silindiyse veya video boşsa BİLDİRİM GELMESİN
         if (!videoUrl || !videoSenderId || videoWatched === true) {
@@ -80,8 +87,16 @@ async function sendVideoNotification(sessionId, sessionData) {
   }
 
   const userDoc = await db.collection("users").doc(receiverId).get();
-  const fcmToken = userDoc.data()?.fcmToken;
+  const userData = userDoc.data();
+  if (!userData) return;
 
+  // Kullanıcı "Video Geldi" bildirimlerini kapattıysa gönderme
+  if (userData.notifyVideoReceived === false) {
+    console.log(`Kullanıcı ${receiverId} video bildirimlerini kapatmış.`);
+    return;
+  }
+
+  const fcmToken = userData.fcmToken;
   if (!fcmToken) {
     console.log(`Kullanıcı ${receiverId} için FCM token bulunamadı.`);
     return;
@@ -124,6 +139,51 @@ async function sendVideoNotification(sessionId, sessionData) {
   }
 }
 
+async function sendGameOverNotification(sessionId, sessionData) {
+  const user1Id = sessionData.user1Id || "";
+  const user2Id = sessionData.user2Id || "";
+
+  // Her iki oyuncuya da bildirim tercihlerine göre bildir
+  const players = [
+    { id: user1Id, opponentName: sessionData.user2Name || "Rakip" },
+    { id: user2Id, opponentName: sessionData.user1Name || "Rakip" }
+  ];
+
+  for (const player of players) {
+    if (!player.id) continue;
+    const userDoc = await db.collection("users").doc(player.id).get();
+    const userData = userDoc.data();
+    if (!userData || userData.notifyGameOver === false) continue;
+
+    const fcmToken = userData.fcmToken;
+    if (!fcmToken) continue;
+
+    const message = {
+      token: fcmToken,
+      android: {
+        priority: "high",
+        notification: {
+          title: "🏆 OYUN BİTTİ!",
+          body: `@${player.opponentName} ile oynadığınız online oyun tamamlandı!`,
+          sound: "default",
+          channelId: "game_invitations_channel",
+        },
+      },
+      data: {
+        type: "game_over",
+        sessionId: sessionId
+      }
+    };
+
+    try {
+      await admin.messaging().send(message);
+      console.log(`Oyun Bitti bildirimi gönderildi -> ${player.id}`);
+    } catch (e) {
+      console.error("Oyun bitti bildirimi hatası:", e);
+    }
+  }
+}
+
 async function sendNotification(requestId, data) {
   const receiverId = data.receiverId || "";
   const senderNickname = data.senderNickname || "Bir oyuncu";
@@ -136,8 +196,16 @@ async function sendNotification(requestId, data) {
 
   // Alıcının FCM token'ını Firestore'dan al
   const userDoc = await db.collection("users").doc(receiverId).get();
-  const fcmToken = userDoc.data()?.fcmToken;
+  const userData = userDoc.data();
+  if (!userData) return;
 
+  // Kullanıcı "Oyun İsteği" bildirimlerini kapattıysa gönderme
+  if (userData.notifyGameInvite === false) {
+    console.log(`Kullanıcı ${receiverId} oyun isteği bildirimlerini kapatmış.`);
+    return;
+  }
+
+  const fcmToken = userData.fcmToken;
   if (!fcmToken) {
     console.log(`Kullanıcı ${receiverId} için FCM token bulunamadı.`);
     return;
@@ -186,6 +254,57 @@ async function sendNotification(requestId, data) {
     console.error(`FCM gönderim hatası (${requestId}):`, error);
   }
 }
+
+// ⏰ SIRA SENDE - Her 3 Dakikada Bir Hatırlatıcı (Turn Reminder Cron)
+setInterval(async () => {
+  try {
+    const activeSessions = await db.collection("online_sessions")
+      .where("status", "==", "playing")
+      .get();
+
+    const now = Date.now();
+    const THREE_MINUTES = 3 * 60 * 1000;
+
+    for (const doc of activeSessions.docs) {
+      const data = doc.data();
+      const currentTurn = data.currentTurn;
+      const lastHeartbeat = data.lastHeartbeat || data.lastTurnTimestamp || 0;
+
+      if (!currentTurn) continue;
+
+      // Eğer kullanıcının sırası 3 dakikayı geçtiyse ve kullanıcı oyunu bitirene kadar henüz yapmadıysa
+      if (now - lastHeartbeat >= THREE_MINUTES) {
+        const userDoc = await db.collection("users").doc(currentTurn).get();
+        const userData = userDoc.data();
+
+        if (userData && userData.notifyTurnReminder !== false && userData.fcmToken) {
+          const opponentName = (currentTurn === data.user1Id ? data.user2Name : data.user1Name) || "Rakibiniz";
+          const message = {
+            token: userData.fcmToken,
+            android: {
+              priority: "high",
+              notification: {
+                title: "⏰ SIRA SENDE!",
+                body: `@${opponentName} sizden hamle bekliyor! Görevinizi tamamlamak için oyuna dönün.`,
+                sound: "default",
+                channelId: "game_invitations_channel",
+              },
+            },
+            data: {
+              type: "turn_reminder",
+              sessionId: doc.id
+            }
+          };
+
+          await admin.messaging().send(message);
+          console.log(`3 dk Sıra Sende hatırlatıcısı gönderildi -> ${currentTurn}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Turn reminder periyodik kontrol hatası:", e);
+  }
+}, 3 * 60 * 1000); // 3 dakikada bir kontrol et
 
 // Render.com Web Service'i olarak ücretsiz host edebilmek için sahte bir health-check endpoint'i
 app.get("/", (req, res) => {
