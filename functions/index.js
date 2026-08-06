@@ -107,6 +107,10 @@ async function sendVideoNotification(sessionId, sessionData) {
 
   const message = {
     token: fcmToken,
+    notification: {
+      title: title,
+      body: body,
+    },
     android: {
       priority: "high",
       ttl: 0,
@@ -158,20 +162,29 @@ async function sendGameOverNotification(sessionId, sessionData) {
     const fcmToken = userData.fcmToken;
     if (!fcmToken) continue;
 
+    const title = "🏆 OYUN BİTTİ!";
+    const body = `@${player.opponentName} ile oynadığınız online oyun tamamlandı!`;
+
     const message = {
       token: fcmToken,
+      notification: {
+        title: title,
+        body: body,
+      },
       android: {
         priority: "high",
         notification: {
-          title: "🏆 OYUN BİTTİ!",
-          body: `@${player.opponentName} ile oynadığınız online oyun tamamlandı!`,
+          title: title,
+          body: body,
           sound: "default",
           channelId: "game_invitations_channel",
         },
       },
       data: {
         type: "game_over",
-        sessionId: sessionId
+        sessionId: sessionId,
+        title: title,
+        body: body,
       }
     };
 
@@ -223,6 +236,7 @@ async function sendNotification(requestId, data) {
     softhub: "SOFTHUB",
   };
   const catName = catNames[selectedCategory.toLowerCase()] || selectedCategory.toUpperCase();
+  const title = "🎮 OYUN İSTEĞİ GELDİ!";
   const body = catName
     ? `@${senderNickname} size ${catName} lobisinde oyun daveti gönderdi! 🎮`
     : `@${senderNickname} sizinle oyun oynamak istiyor!`;
@@ -230,10 +244,14 @@ async function sendNotification(requestId, data) {
   // FCM v1 mesajı
   const message = {
     token: fcmToken,
+    notification: {
+      title: title,
+      body: body,
+    },
     android: {
       priority: "high",
       notification: {
-        title: "🎮 OYUN İSTEĞİ GELDİ!",
+        title: title,
         body: body,
         sound: "default",
         channelId: "game_invitations_channel",
@@ -244,6 +262,8 @@ async function sendNotification(requestId, data) {
       senderId: data.senderId || "",
       senderNickname: senderNickname,
       selectedCategory: selectedCategory,
+      title: title,
+      body: body,
     },
   };
 
@@ -279,20 +299,28 @@ setInterval(async () => {
 
         if (userData && userData.notifyTurnReminder !== false && userData.fcmToken) {
           const opponentName = (currentTurn === data.user1Id ? data.user2Name : data.user1Name) || "Rakibiniz";
+          const title = "⏰ SIRA SENDE!";
+          const body = `@${opponentName} sizden hamle bekliyor! Görevinizi tamamlamak için oyuna dönün.`;
           const message = {
             token: userData.fcmToken,
+            notification: {
+              title: title,
+              body: body,
+            },
             android: {
               priority: "high",
               notification: {
-                title: "⏰ SIRA SENDE!",
-                body: `@${opponentName} sizden hamle bekliyor! Görevinizi tamamlamak için oyuna dönün.`,
+                title: title,
+                body: body,
                 sound: "default",
                 channelId: "game_invitations_channel",
               },
             },
             data: {
               type: "turn_reminder",
-              sessionId: doc.id
+              sessionId: doc.id,
+              title: title,
+              body: body,
             }
           };
 

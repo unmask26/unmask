@@ -14,15 +14,22 @@ object FCMTokenManager {
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful && task.result != null) {
                 val token = task.result
-                saveTokenToFirestore(token)
+                saveTokenToFirestore(token, context)
             }
         }
     }
 
-    fun saveTokenToFirestore(token: String) {
+    fun saveTokenToFirestore(token: String, context: Context? = null) {
         val currentUser = FirebaseConfig.auth.currentUser ?: return
         val uid = currentUser.uid
         if (uid.isEmpty() || uid == "offline_demo_user") return
+
+        if (context != null) {
+            try {
+                val prefs = context.getSharedPreferences("unmask_prefs", Context.MODE_PRIVATE)
+                prefs.edit().putString("current_user_uid", uid).apply()
+            } catch (_: Exception) {}
+        }
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
