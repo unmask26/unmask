@@ -1726,19 +1726,26 @@ fun OnlineGameplayView(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    // Face detection indicator
+                                    // MASKE filter selection button (cycles filters on click)
+                                    val allMaskOptions = remember { listOf("none") + com.example.unmask.features.ar.PartyMaskEngine.PARTY_MASKS.map { it.id } }
                                     Box(
                                         modifier = Modifier
-                                            .background(Color.Black.copy(0.65f), RoundedCornerShape(12.dp))
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color.Black.copy(0.65f))
+                                            .clickable {
+                                                val currIndex = allMaskOptions.indexOf(activeFilter)
+                                                val nextIndex = if (currIndex < 0 || currIndex >= allMaskOptions.size - 1) 0 else currIndex + 1
+                                                activeFilter = allMaskOptions[nextIndex]
+                                            }
                                             .padding(horizontal = 12.dp, vertical = 6.dp)
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Box(Modifier.size(8.dp).background(
-                                                if (isFaceDetected) Color(0xFF10B981) else Color(0xFFEF4444), CircleShape
-                                            ))
+                                            Box(Modifier.size(8.dp).background(Color(0xFF10B981), CircleShape))
+                                            val currentMaskObj = com.example.unmask.features.ar.PartyMaskEngine.PARTY_MASKS.find { it.id == activeFilter }
+                                            val maskLabel = currentMaskObj?.name?.uppercase() ?: "KAPALI"
                                             Text(
-                                                text = if (isFaceDetected) "YÜZ ALGILANDI" else "YÜZ ARANIYOR...",
-                                                color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold
+                                                text = "MASKE ($maskLabel)",
+                                                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold
                                             )
                                         }
                                     }
