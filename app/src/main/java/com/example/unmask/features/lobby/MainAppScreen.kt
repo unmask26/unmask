@@ -258,44 +258,6 @@ fun MainAppScreen(
                 )
 
                 NavigationDrawerItem(
-                    label = { Text("Oyun Yarat", fontWeight = FontWeight.Bold) },
-                    icon = { Icon(Icons.Default.Add, contentDescription = "Oyun Yarat") },
-                    selected = activeTab == "createGame",
-                    onClick = {
-                        coroutineScope.launch { drawerState.close() }
-                        activeTab = "createGame"
-                    },
-                    colors = NavigationDrawerItemDefaults.colors(
-                        selectedContainerColor = Color.Black.copy(alpha = 0.05f),
-                        unselectedContainerColor = Color.Transparent,
-                        selectedTextColor = Color.Black,
-                        unselectedTextColor = Color.Black.copy(alpha = 0.6f),
-                        selectedIconColor = Color.Black,
-                        unselectedIconColor = Color.Black.copy(alpha = 0.6f)
-                    ),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Satın Al 🛒", fontWeight = FontWeight.Bold, color = Color(0xFF10B981)) },
-                    icon = { Icon(Icons.Default.ShoppingCart, contentDescription = "Satın Al", tint = Color(0xFF10B981)) },
-                    selected = activeTab == "buyCard",
-                    onClick = {
-                        coroutineScope.launch { drawerState.close() }
-                        activeTab = "buyCard"
-                    },
-                    colors = NavigationDrawerItemDefaults.colors(
-                        selectedContainerColor = Color(0xFF10B981).copy(alpha = 0.1f),
-                        unselectedContainerColor = Color.Transparent,
-                        selectedTextColor = Color(0xFF10B981),
-                        unselectedTextColor = Color(0xFF10B981),
-                        selectedIconColor = Color(0xFF10B981),
-                        unselectedIconColor = Color(0xFF10B981)
-                    ),
-                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
-                )
-
-                NavigationDrawerItem(
                     label = { Text("Çıkış Yap", fontWeight = FontWeight.Bold, color = Color.Red) },
                     icon = { Icon(Icons.Default.Logout, contentDescription = "Çıkış", tint = Color.Red) },
                     selected = false,

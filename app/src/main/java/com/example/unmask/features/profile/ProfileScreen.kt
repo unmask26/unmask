@@ -375,52 +375,6 @@ fun ProfileScreen(
                 }
             }
 
-            // Fiziki Kart Satın Al Buton Kartı
-            Card(
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF18181B)),
-                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFACC15)),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showBuyCardScreen = true }
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ShoppingCart,
-                            contentDescription = "Satın Al",
-                            tint = Color(0xFF10B981),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "FİZİKİ KART SATIN AL 🎴",
-                                color = Color.White,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = "Sonsuz soru algoritmalı fiziki kart siparişi ver",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = "İlerle",
-                        tint = Color.White.copy(alpha = 0.6f)
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
             // Save Button

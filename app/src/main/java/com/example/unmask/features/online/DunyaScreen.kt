@@ -239,34 +239,6 @@ fun DunyaScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = onBack,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Black,
-                                contentColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                            modifier = Modifier.height(36.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(Color(0xFFEF4444), CircleShape)
-                                )
-                                Text(
-                                    text = "OFFLINE",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
-                        }
                     }
                     Spacer(modifier = Modifier.height(24.dp))
 
