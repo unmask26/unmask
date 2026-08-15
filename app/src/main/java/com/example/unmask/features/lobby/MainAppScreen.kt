@@ -387,6 +387,7 @@ fun MainAppScreen(
                         },
                         text = {
                             val catName = when (req.selectedCategory.lowercase()) {
+                                "flort" -> "FLÖRT"
                                 "iliskiler" -> "İLİŞKİLER"
                                 "adrenalin" -> "ADRENALİN"
                                 "bilgi" -> "BİLGİ"

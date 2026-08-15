@@ -930,6 +930,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 else -> "erkege_kadina"
             }
             val fullPool: List<String> = when (category.lowercase()) {
+                "flort"      -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                 "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                 "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
                 "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
@@ -975,7 +976,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                 delay(1500)
                 val current = _simulatedSession.value
                 if (current != null && current.user1Categories.isNotEmpty() && current.user2Categories.isEmpty()) {
-                    val botCats = listOf("iliskiler", "adrenalin", "bilgi", "aktuel", "hatiralar", "fanteziler", "adult", "softhub").shuffled()
+                    val botCats = listOf("flort", "iliskiler", "adrenalin", "bilgi", "aktuel", "hatiralar", "fanteziler", "adult", "softhub").shuffled()
                     var bestCat = "iliskiler"
                     var minRankSum = 999
                     for (cat in botCats) {
@@ -1050,7 +1051,7 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
                     delay(2000)
                     val current = _simulatedSession.value
                     if (current != null) {
-                        val botCats = listOf("iliskiler", "adrenalin", "bilgi", "aktuel", "hatiralar", "fanteziler", "adult", "softhub").shuffled()
+                        val botCats = listOf("flort", "iliskiler", "adrenalin", "bilgi", "aktuel", "hatiralar", "fanteziler", "adult", "softhub").shuffled()
                         var bestCat = "iliskiler"
                         var minRankSum = 999
                         for (cat in botCats) {

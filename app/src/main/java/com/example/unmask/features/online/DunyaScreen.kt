@@ -111,6 +111,7 @@ fun DunyaScreen(
 
     val onlineCategories = remember {
         listOf(
+            OnlineCategoryInfo("FLÖRT", "flort", Color(0xFFEC4899), com.example.unmask.R.drawable.fantasies_icon),
             OnlineCategoryInfo("İLİŞKİLER", "iliskiler", Color(0xFF8B5CF6), com.example.unmask.R.drawable.relations_icon),
             OnlineCategoryInfo("ADRENALİN", "adrenalin", Color(0xFFEF4444), com.example.unmask.R.drawable.adrenaline_icon),
             OnlineCategoryInfo("BİLGİ", "bilgi", Color(0xFFFBBF24), com.example.unmask.R.drawable.knowledge_icon),
@@ -662,6 +663,7 @@ fun DunyaScreen(
                                             else -> "erkege_kadina"
                                         }
                                         val fullPool: List<String> = when (session.commonCategory.lowercase()) {
+                                            "flort"      -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                                             "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                                             "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
                                             "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
@@ -1388,6 +1390,7 @@ fun OnlineGameplayView(
                         else -> "erkege_kadina"
                     }
                     val fullPool: List<String> = when (session.commonCategory.lowercase()) {
+                        "flort"      -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                         "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                         "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
                         "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()

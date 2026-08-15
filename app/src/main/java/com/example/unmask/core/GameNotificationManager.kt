@@ -48,6 +48,7 @@ object GameNotificationManager {
         createNotificationChannel(context)
 
         val catName = when (request.selectedCategory.lowercase()) {
+            "flort" -> "FLÖRT"
             "iliskiler" -> "İLİŞKİLER"
             "adrenalin" -> "ADRENALİN"
             "bilgi" -> "BİLGİ"

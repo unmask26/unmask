@@ -85,6 +85,7 @@ fun GecmisScreen(
 
     val categories = remember {
         listOf(
+            OnlineCategoryInfo("FLÖRT", "flort", Color(0xFFF43F5E), 0),
             OnlineCategoryInfo("İLİŞKİLER", "iliskiler", Color(0xFFEC4899), 0),
             OnlineCategoryInfo("ADRENALİN", "adrenalin", Color(0xFFEAB308), 0),
             OnlineCategoryInfo("BİLGİ", "bilgi", Color(0xFF3B82F6), 0),
