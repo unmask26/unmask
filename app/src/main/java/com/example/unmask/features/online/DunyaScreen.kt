@@ -81,6 +81,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
+private fun isSpouseMatch(userSpouseStr: String?, opponentName: String?): Boolean {
+    if (userSpouseStr.isNullOrBlank() || opponentName.isNullOrBlank()) return false
+    val spouseList = userSpouseStr.split(",").map { it.trim().lowercase() }.filter { it.isNotBlank() }
+    val opp = opponentName.trim().lowercase()
+    return spouseList.any { it == opp || it == "@$opp" || opp == "@$it" }
+}
+
 @Composable
 fun DunyaScreen(
     repository: DataRepository,
@@ -662,8 +669,10 @@ fun DunyaScreen(
                                             playerGender == "Erkek" && opponentGender == "Erkek" -> "erkege_erkege"
                                             else -> "erkege_kadina"
                                         }
+                                        val oppName = if (session.user1Id == currentUser?.uid) session.user2Name else session.user1Name
+                                        val isSpouse = isSpouseMatch(currentUser?.spouseNickname, oppName)
                                         val fullPool: List<String> = when (session.commonCategory.lowercase()) {
-                                            "flort"      -> Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList()
+                                            "flort"      -> if (isSpouse) (Constants.ONLINE_SPOUSE_FLORT_TASKS[poolKey] ?: Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList()) else (Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList())
                                             "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                                             "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
                                             "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
@@ -1166,6 +1175,7 @@ fun OnlineGameplayView(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val currentUser by repository.currentUser.collectAsState(initial = null)
 
     val isMyTurn = session.currentTurn == userId
     val activeGame = remember(session.selectedGameId, session.commonCategory, customGames) {
@@ -1389,8 +1399,10 @@ fun OnlineGameplayView(
                         playerGender == "Erkek" && opponentGender == "Erkek" -> "erkege_erkege"
                         else -> "erkege_kadina"
                     }
+                    val oppName = if (session.user1Id == currentUser?.uid) session.user2Name else session.user1Name
+                    val isSpouse = isSpouseMatch(currentUser?.spouseNickname, oppName)
                     val fullPool: List<String> = when (session.commonCategory.lowercase()) {
-                        "flort"      -> Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList()
+                        "flort"      -> if (isSpouse) (Constants.ONLINE_SPOUSE_FLORT_TASKS[poolKey] ?: Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList()) else (Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList())
                         "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                         "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
                         "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
