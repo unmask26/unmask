@@ -663,7 +663,7 @@ fun DunyaScreen(
                                             else -> "erkege_kadina"
                                         }
                                         val fullPool: List<String> = when (session.commonCategory.lowercase()) {
-                                            "flort"      -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+                                            "flort"      -> Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList()
                                             "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                                             "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
                                             "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
@@ -1390,7 +1390,7 @@ fun OnlineGameplayView(
                         else -> "erkege_kadina"
                     }
                     val fullPool: List<String> = when (session.commonCategory.lowercase()) {
-                        "flort"      -> Constants.ONLINE_FANTEZILER_TASKS[poolKey] ?: Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
+                        "flort"      -> Constants.ONLINE_FLORT_TASKS[poolKey] ?: emptyList()
                         "iliskiler"  -> Constants.ONLINE_RELATION_TASKS[poolKey] ?: emptyList()
                         "adrenalin"  -> Constants.ONLINE_ADRENALIN_TASKS[poolKey] ?: emptyList()
                         "bilgi"      -> Constants.ONLINE_BILGI_TASKS[poolKey] ?: emptyList()
