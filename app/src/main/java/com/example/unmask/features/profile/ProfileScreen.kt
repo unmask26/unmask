@@ -187,33 +187,14 @@ fun ProfileScreen(
 
             // EŞ / Flört Field
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+                Button(
+                    onClick = { },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899), contentColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(34.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
                 ) {
-                    Button(
-                        onClick = { },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899), contentColor = Color.White),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.height(34.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
-                    ) {
-                        Text(text = "EŞ 💍", fontWeight = FontWeight.Black, fontSize = 12.sp)
-                    }
-                    IconButton(
-                        onClick = { spouseList = spouseList + "" },
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(Color(0xFFEC4899), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Eş Ekle",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    Text(text = "EŞ 💍", fontWeight = FontWeight.Black, fontSize = 12.sp)
                 }
                 
                 spouseList.forEachIndexed { index, spouseVal ->
@@ -229,24 +210,25 @@ fun ProfileScreen(
                                 newList[index] = newVal
                                 spouseList = newList
                             },
-                            placeholder = { Text("flört kullanıcı adını gir", fontSize = 12.sp) },
+                            placeholder = { Text("flört kullanıcı adını gir", fontSize = 13.sp, color = Color.Gray) },
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.Black),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFFEC4899),
-                                unfocusedBorderColor = Color.Black.copy(alpha = 0.08f),
+                                unfocusedBorderColor = Color.Black.copy(alpha = 0.12f),
                                 focusedContainerColor = Color.White,
                                 unfocusedContainerColor = Color.White
                             ),
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(14.dp),
                             modifier = Modifier
                                 .weight(1f)
-                                .height(46.dp)
+                                .height(54.dp)
                         )
                         if (index == spouseList.size - 1) {
                             IconButton(
                                 onClick = { spouseList = spouseList + "" },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .background(Color(0xFFEC4899).copy(alpha = 0.15f), CircleShape)
                             ) {
                                 Icon(
@@ -265,7 +247,7 @@ fun ProfileScreen(
                                     spouseList = newList
                                 },
                                 modifier = Modifier
-                                    .size(36.dp)
+                                    .size(38.dp)
                                     .background(Color.Red.copy(alpha = 0.1f), CircleShape)
                             ) {
                                 Icon(
