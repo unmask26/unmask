@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Lock
@@ -61,7 +64,7 @@ fun ProfileScreen(
     var selectedGender by remember { mutableStateOf("Erkek") }
     var birthDate by remember { mutableStateOf("") }
     var adultPassword by remember { mutableStateOf("") }
-    var spouseNickname by remember { mutableStateOf("") }
+    var spouseList by remember { mutableStateOf(listOf("")) }
     var notifyVideoReceived by remember { mutableStateOf(true) }
     var notifyGameInvite by remember { mutableStateOf(true) }
     var notifyGameOver by remember { mutableStateOf(true) }
@@ -83,7 +86,9 @@ fun ProfileScreen(
             if (!hasInitialized || birthDate.isEmpty()) {
                 displayName = u.displayName
                 nickname = u.nickname ?: ""
-                spouseNickname = u.spouseNickname ?: ""
+                val existingSpouse = u.spouseNickname ?: ""
+                val parsedSpouseList = existingSpouse.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+                spouseList = if (parsedSpouseList.isNotEmpty()) parsedSpouseList else listOf("")
                 selectedGender = u.gender
                 birthDate = u.birthDate
                 adultPassword = u.adultPassword ?: ""
@@ -122,6 +127,7 @@ fun ProfileScreen(
             Toast.makeText(context, "Gelecek bir tarih doğum tarihi olarak seçilemez", Toast.LENGTH_SHORT).show()
             return
         }
+        val combinedSpouse = spouseList.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(",")
         coroutineScope.launch {
             isLoading = true
             try {
@@ -135,7 +141,7 @@ fun ProfileScreen(
                     notifyGameInvite = notifyGameInvite,
                     notifyGameOver = notifyGameOver,
                     notifyTurnReminder = notifyTurnReminder,
-                    spouseNickname = spouseNickname
+                    spouseNickname = combinedSpouse
                 )
                 Toast.makeText(context, "Profil başarıyla kaydedildi!", Toast.LENGTH_SHORT).show()
                 onProfileSaved()
@@ -179,22 +185,99 @@ fun ProfileScreen(
             // Nickname Field
             ProfileTextField(label = "TAKMA AD (NICKNAME)", value = nickname, onValueChange = { nickname = it }, placeholder = "Takma adınızı girin")
 
-            // EŞ Field
+            // EŞ / Flört Field
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899), contentColor = Color.White),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(38.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = "EŞ 💍", fontWeight = FontWeight.Black, fontSize = 13.sp)
+                    Button(
+                        onClick = { },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899), contentColor = Color.White),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(34.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    ) {
+                        Text(text = "EŞ 💍", fontWeight = FontWeight.Black, fontSize = 12.sp)
+                    }
+                    IconButton(
+                        onClick = { spouseList = spouseList + "" },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color(0xFFEC4899), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Eş Ekle",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
-                ProfileTextField(
-                    label = "EŞ KULLANICI ADI (KARISI / SEVGİLİSİ)",
-                    value = spouseNickname,
-                    onValueChange = { spouseNickname = it },
-                    placeholder = "Karısı veya sevgilisinin kullanıcı adını girin"
-                )
+                
+                spouseList.forEachIndexed { index, spouseVal ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedTextField(
+                            value = spouseVal,
+                            onValueChange = { newVal ->
+                                val newList = spouseList.toMutableList()
+                                newList[index] = newVal
+                                spouseList = newList
+                            },
+                            placeholder = { Text("flört kullanıcı adını gir", fontSize = 12.sp) },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFEC4899),
+                                unfocusedBorderColor = Color.Black.copy(alpha = 0.08f),
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                        )
+                        if (index == spouseList.size - 1) {
+                            IconButton(
+                                onClick = { spouseList = spouseList + "" },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(Color(0xFFEC4899).copy(alpha = 0.15f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Eş Ekle",
+                                    tint = Color(0xFFEC4899),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        if (spouseList.size > 1) {
+                            IconButton(
+                                onClick = {
+                                    val newList = spouseList.toMutableList()
+                                    newList.removeAt(index)
+                                    spouseList = newList
+                                },
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(Color.Red.copy(alpha = 0.1f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Sil",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // Gender Field
