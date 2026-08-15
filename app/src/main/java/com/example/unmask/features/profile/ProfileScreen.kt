@@ -61,6 +61,7 @@ fun ProfileScreen(
     var selectedGender by remember { mutableStateOf("Erkek") }
     var birthDate by remember { mutableStateOf("") }
     var adultPassword by remember { mutableStateOf("") }
+    var spouseNickname by remember { mutableStateOf("") }
     var notifyVideoReceived by remember { mutableStateOf(true) }
     var notifyGameInvite by remember { mutableStateOf(true) }
     var notifyGameOver by remember { mutableStateOf(true) }
@@ -82,6 +83,7 @@ fun ProfileScreen(
             if (!hasInitialized || birthDate.isEmpty()) {
                 displayName = u.displayName
                 nickname = u.nickname ?: ""
+                spouseNickname = u.spouseNickname ?: ""
                 selectedGender = u.gender
                 birthDate = u.birthDate
                 adultPassword = u.adultPassword ?: ""
@@ -132,7 +134,8 @@ fun ProfileScreen(
                     notifyVideoReceived = notifyVideoReceived,
                     notifyGameInvite = notifyGameInvite,
                     notifyGameOver = notifyGameOver,
-                    notifyTurnReminder = notifyTurnReminder
+                    notifyTurnReminder = notifyTurnReminder,
+                    spouseNickname = spouseNickname
                 )
                 Toast.makeText(context, "Profil başarıyla kaydedildi!", Toast.LENGTH_SHORT).show()
                 onProfileSaved()
@@ -175,6 +178,24 @@ fun ProfileScreen(
 
             // Nickname Field
             ProfileTextField(label = "TAKMA AD (NICKNAME)", value = nickname, onValueChange = { nickname = it }, placeholder = "Takma adınızı girin")
+
+            // EŞ Field
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEC4899), contentColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(38.dp)
+                ) {
+                    Text(text = "EŞ 💍", fontWeight = FontWeight.Black, fontSize = 13.sp)
+                }
+                ProfileTextField(
+                    label = "EŞ KULLANICI ADI (KARISI / SEVGİLİSİ)",
+                    value = spouseNickname,
+                    onValueChange = { spouseNickname = it },
+                    placeholder = "Karısı veya sevgilisinin kullanıcı adını girin"
+                )
+            }
 
             // Gender Field
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

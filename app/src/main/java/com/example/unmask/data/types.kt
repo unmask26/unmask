@@ -51,7 +51,8 @@ data class UserProfile(
     val notifyVideoReceived: Boolean = true,
     val notifyGameInvite: Boolean = true,
     val notifyGameOver: Boolean = true,
-    val notifyTurnReminder: Boolean = true
+    val notifyTurnReminder: Boolean = true,
+    val spouseNickname: String? = ""
 ) {
     val isUserAdult: Boolean
         get() {

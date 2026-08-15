@@ -51,7 +51,8 @@ interface DataRepository {
         notifyVideoReceived: Boolean = true,
         notifyGameInvite: Boolean = true,
         notifyGameOver: Boolean = true,
-        notifyTurnReminder: Boolean = true
+        notifyTurnReminder: Boolean = true,
+        spouseNickname: String = ""
     ): UserProfile
     
     fun getMemories(userId: String): Flow<List<Memory>>
@@ -543,7 +544,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
         notifyVideoReceived: Boolean,
         notifyGameInvite: Boolean,
         notifyGameOver: Boolean,
-        notifyTurnReminder: Boolean
+        notifyTurnReminder: Boolean,
+        spouseNickname: String
     ): UserProfile {
         val current = _currentUser.value ?: throw IllegalStateException("Kullanıcı giriş yapmamış.")
         val uid = current.uid
@@ -561,7 +563,8 @@ class DefaultDataRepository(private val context: Context) : DataRepository {
             notifyVideoReceived = notifyVideoReceived,
             notifyGameInvite = notifyGameInvite,
             notifyGameOver = notifyGameOver,
-            notifyTurnReminder = notifyTurnReminder
+            notifyTurnReminder = notifyTurnReminder,
+            spouseNickname = spouseNickname
         )
 
         if (uid != "offline_demo_user") {
