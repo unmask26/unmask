@@ -20,6 +20,7 @@ fun OyunScreen(
     DunyaScreen(
         repository = repository,
         initialCategory = initialOnlineCategory,
-        onBack = { }
+        onBack = { },
+        onMenuClick = onMenuClick
     )
 }

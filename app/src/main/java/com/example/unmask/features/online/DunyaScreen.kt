@@ -92,7 +92,8 @@ private fun isSpouseMatch(userSpouseStr: String?, opponentName: String?): Boolea
 fun DunyaScreen(
     repository: DataRepository,
     initialCategory: String? = null,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onMenuClick: (() -> Unit)? = null
 ) {
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -229,9 +230,23 @@ fun DunyaScreen(
                 if (selectedOnlineCategory == null) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (onMenuClick != null) {
+                            IconButton(
+                                onClick = { onMenuClick() },
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(40.dp)
+                                    .background(Color.Black.copy(alpha = 0.05f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Menü",
+                                    tint = Color.Black
+                                )
+                            }
+                        }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "ÇEVRİMİÇİ LOBİLER",
